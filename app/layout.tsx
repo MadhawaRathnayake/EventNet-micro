@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import NavigationBar from "./components/common/navigationbar";
+import Providers from "./Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,7 +29,13 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <Providers>
+        <NavigationBar />
+        <body className="min-h-full flex flex-col">{children}</body>
+        <footer className="text-center py-6 text-gray-500 bg-gray-900 text-sm">
+          © {new Date().getFullYear()} EventNet. All rights reserved.
+        </footer>
+      </Providers>
     </html>
   );
 }
