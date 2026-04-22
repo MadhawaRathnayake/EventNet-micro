@@ -8,7 +8,7 @@ import { Event, fetchEventById } from "../../../dummyData/DummyData";
 export default function EventDetailPage() {
   const params = useParams();
   const eventId = params?.id as string;
-  
+
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -111,12 +111,14 @@ export default function EventDetailPage() {
                 </p>
               </div>
 
-              <button
-                className="w-full bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-gray-800 transition duration-300 mb-4"
-              >
-                Buy Now
-              </button>
-
+              <Link
+                href={`http://localhost:3000/payment/${event.id}`}>
+                <button
+                  className="w-full bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-gray-800 transition duration-300 mb-4"
+                >
+                  Buy Now
+                </button>
+              </Link>
               <p className="text-center text-sm text-gray-500">
                 Secure checkout powered by EventNet
               </p>
