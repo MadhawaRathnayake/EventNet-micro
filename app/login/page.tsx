@@ -1,19 +1,41 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
-const LoginPage = () => {
+export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
   const handleGoogleLogin = async () => {
-    // Triggers the same Google OAuth flow
     await signIn('google', { callbackUrl: '/' });
+  };
+
+  const handleCredentialsLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    // Call NextAuth Credentials provider
+    const res = await signIn('credentials', {
+      email,
+      password,
+      redirect: false
+    });
+
+    if (res?.error) {
+      setError('Invalid email or password. Please try again.');
+    } else {
+      router.push('/');
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
         
-        {/* Header Section */}
         <div className="text-center">
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
             Sign in to your account
@@ -23,11 +45,54 @@ const LoginPage = () => {
           </p>
         </div>
 
-        {/* Action Section */}
         <div className="mt-8 space-y-6">
+          <form onSubmit={handleCredentialsLogin} className="space-y-4">
+            {error && (
+              <div className="bg-red-50 text-red-500 p-3 rounded-md text-sm text-center font-medium">
+                {error}
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Email Address</label>
+              <input
+                type="text"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Password</label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+              />
+            </div>
+            
+            <button
+              type="submit"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+            >
+              Sign In
+            </button>
+          </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Or continue with</span>
+            </div>
+          </div>
+
           <button
             onClick={handleGoogleLogin}
-            className="group relative w-full flex justify-center py-3 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+            className="group relative w-full flex justify-center py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
           >
             <span className="absolute left-0 inset-y-0 flex items-center pl-3">
               <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -53,13 +118,11 @@ const LoginPage = () => {
           </button>
 
           <p className="mt-2 text-center text-xs text-gray-500">
-            Don't have an account? Sign up using the same button above.
+            Don't have an account? <a href="/signup" className="text-indigo-600 hover:text-indigo-500 font-medium">Sign up here</a>.
           </p>
-        </div>
 
+        </div>
       </div>
     </div>
   );
 }
-
-export default LoginPage;
