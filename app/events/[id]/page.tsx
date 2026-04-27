@@ -172,8 +172,8 @@ export default function EventDetailPage() {
               </div>
 
               {/* Buy Button */}
-              <Link href={`/payment/${event.id}`}>
-                <button className="w-full bg-black text-white py-3 rounded">
+              <Link href={`/payment/${event.id}?ticketTypeId=${selectedTicket?.id || ''}&price=${selectedTicket?.price || '0'}&ticketName=${encodeURIComponent(selectedTicket?.type_name || 'Standard')}`}>
+                <button className="w-full bg-black text-white py-3 rounded hover:bg-gray-800 transition-colors duration-300">
                   Buy Ticket
                 </button>
               </Link>
