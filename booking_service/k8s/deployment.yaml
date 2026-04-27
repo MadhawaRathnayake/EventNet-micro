@@ -44,7 +44,7 @@ spec:
         - name: EVENT_SERVICE_BASE_URL
           value: "http://event-service:5002/api"
         - name: USER_SERVICE_BASE_URL
-          value: "http://user-service:5000/api"
+          value: "http://user-service:80/api"
         # Azure Service Bus
         - name: SERVICE_BUS_CONNECTION_STRING
           valueFrom:
