@@ -5,10 +5,18 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import React, { useEffect, useState, Suspense } from "react";
 import { createPayment, type PaymentData } from "@/utils/paymentApi";
+import { api } from "@/utils/apiClient";
 
 // ─── Types ──────────────────────────────────────────────────────
 type PaymentMethod = "credit_card" | "debit_card" | "bank_transfer" | "digital_wallet";
 type PaymentStep = "form" | "processing" | "success" | "failed";
+type PaymentApiError = {
+  data?: {
+    data?: PaymentData;
+    error?: string;
+  };
+  message?: string;
+};
 
 // ─── Inner Component (uses useSearchParams) ─────────────────────
 function PaymentPageInner() {
@@ -50,6 +58,7 @@ function PaymentPageInner() {
   const [step, setStep] = useState<PaymentStep>("form");
   const [paymentResult, setPaymentResult] = useState<PaymentData | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [bookingId, setBookingId] = useState<string | null>(null);
 
   // ─── Load event details ───────────────────────────────────────
   useEffect(() => {
@@ -57,7 +66,7 @@ function PaymentPageInner() {
       try {
         setLoadingEvent(true);
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}`
+          `${process.env.NEXT_PUBLIC_EVENTS_API_URL || 'http://event-service/api'}/events/${eventId}`
         );
         if (res.ok) {
           const data = await res.json();
@@ -151,11 +160,42 @@ function PaymentPageInner() {
     setErrorMessage("");
 
     try {
-      const bookingId = crypto.randomUUID();
+      const userId = Number(session?.user?.id);
+      if (!userId || Number.isNaN(userId)) {
+        throw new Error("User ID is missing. Please sign in again.");
+      }
+
+      const reserveResult = await api.post(
+        "/bookings/reserve",
+        {
+          userId,
+          items: [
+            {
+              eventId: Number(eventId),
+              ticketTypeId: Number(ticketTypeId),
+              ticketName,
+              quantity: 1,
+              unitPrice: parseFloat(ticketPrice),
+            },
+          ],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${session.backendToken}`,
+          },
+        }
+      );
+
+      const reservedBookingId = String(reserveResult?.data?.id || "");
+      if (!reservedBookingId) {
+        throw new Error("Failed to create booking reservation.");
+      }
+
+      setBookingId(reservedBookingId);
       const cardLast4 = cardNumber.replace(/\s/g, "").slice(-4);
 
       const result = await createPayment(session.backendToken, {
-        bookingId,
+        bookingId: reservedBookingId,
         amount: parseFloat(ticketPrice),
         currency: "LKR",
         paymentMethod,
@@ -173,14 +213,15 @@ function PaymentPageInner() {
       if (result.data.status === "failed") {
         setErrorMessage(result.data.failureReason || "Payment was declined.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const paymentError = err as PaymentApiError;
       // Extract payment data from failed API response (e.g. card declined - 400)
-      if (err?.data?.data) {
-        setPaymentResult(err.data.data);
+      if (paymentError?.data?.data) {
+        setPaymentResult(paymentError.data.data);
       }
       setStep("failed");
       setErrorMessage(
-        err?.data?.error || err?.message || "Payment processing failed. Please try again."
+        paymentError?.data?.error || paymentError?.message || "Payment processing failed. Please try again."
       );
     }
   };
@@ -263,6 +304,12 @@ function PaymentPageInner() {
                 Completed
               </span>
             </div>
+            {bookingId && (
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-500">Booking ID</span>
+                <span className="text-sm font-medium text-gray-800">BKG-{bookingId}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3">

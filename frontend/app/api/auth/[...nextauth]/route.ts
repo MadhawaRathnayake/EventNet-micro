@@ -2,6 +2,34 @@ import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 
+type AuthUserLike = {
+  backendToken?: string;
+  role?: string;
+};
+
+const toNumericIdString = (value: unknown): string => {
+  const stringValue = String(value ?? "").trim();
+  return /^\d+$/.test(stringValue) ? stringValue : "";
+};
+
+const BACKEND_API_URL =
+  process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://user-service/api";
+
+const safeBackendFetch = async (path: string, body: Record<string, unknown>) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    return await fetch(`${BACKEND_API_URL}${path}`, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 const handler = NextAuth({
   session: {
     strategy: 'jwt'
@@ -23,10 +51,9 @@ const handler = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
         try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/users/auth/login`, {
-            method: 'POST',
-            body: JSON.stringify({ email: credentials.email, password: credentials.password }),
-            headers: { 'Content-Type': 'application/json' }
+          const res = await safeBackendFetch("/users/auth/login", {
+            email: credentials.email,
+            password: credentials.password,
           });
           const data = await res.json();
           if (res.ok && data.user) {
@@ -39,8 +66,8 @@ const handler = NextAuth({
             };
           }
           return null;
-        } catch (err) {
-          console.error("Error logging in:", err);
+        } catch {
+          // Backend service unavailable or timeout; return null so UI shows login failure cleanly.
           return null;
         }
       }
@@ -49,31 +76,32 @@ const handler = NextAuth({
   callbacks: {
     // Attach the id_token to the JWT
     async jwt({ token, account, user }) {
+      if (user?.id) {
+        token.userId = toNumericIdString(user.id);
+      }
       if (account && account.id_token) {
         token.idToken = account.id_token;
 
         try {
           // Sync with user_service
-          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/users/auth/google`, {
-            method: 'POST',
-            body: JSON.stringify({ token: account.id_token }),
-            headers: { 'Content-Type': 'application/json' }
+          const res = await safeBackendFetch("/users/auth/google", {
+            token: account.id_token,
           });
           
           if (res.ok) {
             const data = await res.json();
             token.backendToken = data.token;
             token.role = data.user.role;
-          } else {
-            console.error("Failed to fetch backend token", await res.text());
+            token.userId = toNumericIdString(data.user?.id);
           }
-        } catch (err) {
-          console.error("Error connecting to microservice:", err);
+        } catch {
+          // Ignore backend sync failures; session can still proceed with provider token.
         }
-      } else if (user && (user as any).backendToken) {
+      } else if (user && typeof user === "object" && "backendToken" in user) {
+        const typedUser = user as AuthUserLike;
         // Handle credentials login
-        token.backendToken = (user as any).backendToken;
-        token.role = (user as any).role;
+        token.backendToken = typedUser.backendToken;
+        token.role = typedUser.role;
       }
       return token;
     },
@@ -82,6 +110,7 @@ const handler = NextAuth({
       session.idToken = token.idToken as string;
       session.backendToken = token.backendToken as string;
       if (session.user) {
+        session.user.id = toNumericIdString(token.userId);
         session.user.role = token.role as string;
       }
       return session;

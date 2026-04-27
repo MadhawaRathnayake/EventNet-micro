@@ -118,7 +118,7 @@ export default function LoginPage() {
           </button>
 
           <p className="mt-2 text-center text-xs text-gray-500">
-            Don't have an account? <a href="/signup" className="text-indigo-600 hover:text-indigo-500 font-medium">Sign up here</a>.
+            Don&apos;t have an account? <a href="/signup" className="text-indigo-600 hover:text-indigo-500 font-medium">Sign up here</a>.
           </p>
 
         </div>

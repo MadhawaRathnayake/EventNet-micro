@@ -39,7 +39,7 @@ export default function EventDetailPage() {
         setLoading(true);
 
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}`
+        `${process.env.NEXT_PUBLIC_EVENTS_API_URL || 'http://event-service/api'}/events/${eventId}`
         );
 
         if (!res.ok) {
