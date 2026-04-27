@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: event-frontend-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: event-frontend
+  template:
+    metadata:
+      labels:
+        app: event-frontend
+    spec:
+      containers:
+      - name: event-frontend-container
+        image: eventregistryhiran01.azurecr.io/eventnet_frontend:v1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+        env:
+        # Pulling all the secrets from the event-book-secrets we formatted earlier!
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: event-book-secrets
+              key: GOOGLE_CLIENT_ID
+        - name: GOOGLE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: event-book-secrets
+              key: GOOGLE_CLIENT_SECRET
+        - name: NEXTAUTH_URL
+          valueFrom:
+            secretKeyRef:
+              name: event-book-secrets
+              key: NEXTAUTH_URL
+        - name: NEXTAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: event-book-secrets
+              key: NEXTAUTH_SECRET
+        - name: NEXT_PUBLIC_API_URL
+          valueFrom:
+            secretKeyRef:
+              name: event-book-secrets
+              key: NEXT_PUBLIC_API_URL
+        - name: NEXT_PUBLIC_BACKEND_API_URL
+          valueFrom:
+            secretKeyRef:
+              name: event-book-secrets
+              key: NEXT_PUBLIC_BACKEND_API_URL
+        - name: NEXT_PUBLIC_PAYMENT_API_URL
+          valueFrom:
+            secretKeyRef:
+              name: event-book-secrets
+              key: NEXT_PUBLIC_PAYMENT_API_URL

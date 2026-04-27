@@ -1,6 +1,6 @@
 // utils/apiClient.ts
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://85.211.224.91api';
 
 async function client(endpoint: string, customConfig: RequestInit = {}) {
   const config = {
