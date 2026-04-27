@@ -56,38 +56,45 @@ const handler = NextAuth({
             password: credentials.password,
           });
           const data = await res.json();
+
+          // ─── LOG 1: See what the backend returned ───
+          console.log("[authorize] backend data.user:", data.user);
+
           if (res.ok && data.user) {
-            return {
+            const returned = {
               id: data.user.id,
               email: data.user.email,
               name: `${data.user.first_name || ''} ${data.user.last_name || ''}`.trim() || data.user.email,
               role: data.user.role,
               backendToken: data.token
             };
+
+            // ─── LOG 2: See what authorize() is returning to NextAuth ───
+            console.log("[authorize] returning user object:", returned);
+
+            return returned;
           }
           return null;
         } catch {
-          // Backend service unavailable or timeout; return null so UI shows login failure cleanly.
           return null;
         }
       }
     }),
   ],
   callbacks: {
-    // Attach the id_token to the JWT
     async jwt({ token, account, user }) {
-      if (user?.id) {
-        token.userId = toNumericIdString(user.id);
-      }
-      if (account && account.id_token) {
-        token.idToken = account.id_token;
 
+      // ─── LOG 3: See what NextAuth passes into the jwt callback ───
+      console.log("[jwt] user received:", user);
+      console.log("[jwt] token.userId before any changes:", token.userId);
+
+      if (account && account.id_token) {
+        // Google OAuth login
+        token.idToken = account.id_token;
         try {
-          // Sync with user_service
           const res = await safeBackendFetch("/users/auth/google", {
             token: account.id_token,
           });
-          
           if (res.ok) {
             const data = await res.json();
             token.backendToken = data.token;
@@ -95,24 +102,41 @@ const handler = NextAuth({
             token.userId = toNumericIdString(data.user?.id);
           }
         } catch {
-          // Ignore backend sync failures; session can still proceed with provider token.
+          // Ignore backend sync failures
         }
       } else if (user && typeof user === "object" && "backendToken" in user) {
+        // Credentials login — only runs on the FIRST call when user object exists
         const typedUser = user as AuthUserLike;
-        // Handle credentials login
         token.backendToken = typedUser.backendToken;
         token.role = typedUser.role;
+        if (user.id) {
+          token.userId = toNumericIdString(user.id);
+        }
       }
+      // NOTE: On every subsequent call (session refresh), user is undefined.
+      // token.userId is already stored in the JWT from the first call above,
+      // so we don't need to do anything — NextAuth automatically carries it forward.
+
+      // ─── LOG 4: See what token.userId is after all the logic ───
+      console.log("[jwt] token.userId after all logic:", token.userId);
+
       return token;
     },
-    // Expose the tokens to the client session
     async session({ session, token }) {
+
+      // ─── LOG 5: See what token contains when building the session ───
+      console.log("[session] token.userId:", token.userId);
+
       session.idToken = token.idToken as string;
       session.backendToken = token.backendToken as string;
       if (session.user) {
         session.user.id = toNumericIdString(token.userId);
         session.user.role = token.role as string;
       }
+
+      // ─── LOG 6: See what session.user.id ends up as ───
+      console.log("[session] session.user.id:", session.user?.id);
+
       return session;
     },
   },

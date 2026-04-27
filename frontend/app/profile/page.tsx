@@ -20,9 +20,9 @@ export default function ProfilePage() {
     <div className="min-h-[90vh] bg-gray-50 p-8 flex justify-center items-start">
       <div className="w-full max-w-md bg-white p-8 rounded-xl shadow-lg flex flex-col items-center text-center">
         {session?.user?.image ? (
-          <img 
-            src={session.user.image} 
-            alt="Profile" 
+          <img
+            src={session.user.image}
+            alt="Profile"
             className="w-28 h-28 rounded-full border-4 border-gray-200 shadow-sm mb-4"
           />
         ) : (
@@ -32,6 +32,7 @@ export default function ProfilePage() {
         )}
         <h1 className="text-2xl font-bold text-gray-800">{session?.user?.name || "Unknown"}</h1>
         <p className="text-gray-500 mt-2">{session?.user?.email}</p>
+        <p className="text-gray-500 mt-2">My id is{session?.user?.id}</p>
       </div>
     </div>
   );
