@@ -1,6 +1,6 @@
 // utils/apiClient.ts
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://booking-service/api';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://85.211.224.91//api';
 
 async function client(endpoint: string, customConfig: RequestInit = {}) {
   const config = {
