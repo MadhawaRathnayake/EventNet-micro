@@ -24,7 +24,7 @@ type ApiEvent = {
 };
 
 const EVENTS_API_URL =
-  process.env.NEXT_PUBLIC_EVENTS_API_URL || "http://event-service/api";
+  process.env.NEXT_PUBLIC_EVENTS_API_URL || "http://85.211.224.91/api";
 
 const EventsSection = () => {
   const [events, setEvents] = useState<Event[]>([]);
