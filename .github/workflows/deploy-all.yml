@@ -46,7 +46,10 @@ jobs:
           password: ${{ secrets.ACR_PASSWORD }}
       - run: |
           cd frontend
-          docker build -t eventregistryhiran01.azurecr.io/eventnet_frontend:latest .
+          docker build \
+            --build-arg NEXT_PUBLIC_BACKEND_API_URL=${{ secrets.NEXT_PUBLIC_BACKEND_API_URL }} \
+            --build-arg NEXT_PUBLIC_PAYMENT_API_URL=${{ secrets.NEXT_PUBLIC_PAYMENT_API_URL }} \
+            -t eventregistryhiran01.azurecr.io/eventnet_frontend:latest .
           docker push eventregistryhiran01.azurecr.io/eventnet_frontend:latest
       - uses: azure/k8s-set-context@v3
         with:

@@ -19,6 +19,14 @@ COPY . .
 
 # Next.js will automatically detect .env.local here and bake the NEXT_PUBLIC_ variables
 # into the client-side code correctly during this build step.
+# Accept build-time variables from CI/CD pipeline
+ARG NEXT_PUBLIC_BACKEND_API_URL
+ARG NEXT_PUBLIC_PAYMENT_API_URL
+
+# Expose them as environment variables so Next.js bakes them into the client-side build
+ENV NEXT_PUBLIC_BACKEND_API_URL=$NEXT_PUBLIC_BACKEND_API_URL
+ENV NEXT_PUBLIC_PAYMENT_API_URL=$NEXT_PUBLIC_PAYMENT_API_URL
+
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
