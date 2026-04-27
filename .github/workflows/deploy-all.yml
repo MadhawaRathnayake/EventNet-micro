@@ -54,9 +54,7 @@ jobs:
           kubeconfig: ${{ secrets.KUBE_CONFIG }}
       - run: |
           cd frontend/k8s
-          kubectl apply -f deployment.yaml
-          kubectl apply -f service.yaml
-          kubectl apply -f ingress.yaml
+          kubectl apply -f .
           kubectl rollout restart deployment event-frontend-deployment
 
   # =========================================================
@@ -83,8 +81,7 @@ jobs:
           kubeconfig: ${{ secrets.KUBE_CONFIG }}
       - run: |
           cd user_service/k8s
-          kubectl apply -f deployment.yaml
-          kubectl apply -f service.yaml
+          kubectl apply -f .
           kubectl rollout restart deployment user-service-deployment
 
   # =========================================================
@@ -111,8 +108,7 @@ jobs:
           kubeconfig: ${{ secrets.KUBE_CONFIG }}
       - run: |
           cd event_service/k8s
-          kubectl apply -f deployment.yaml
-          kubectl apply -f service.yaml
+          kubectl apply -f .
           kubectl rollout restart deployment event-service-deployment
 
   # =========================================================
@@ -139,8 +135,7 @@ jobs:
           kubeconfig: ${{ secrets.KUBE_CONFIG }}
       - run: |
           cd payment_service/k8s
-          kubectl apply -f deployment.yaml
-          kubectl apply -f service.yaml
+          kubectl apply -f .
           kubectl rollout restart deployment payment-service
 
   # =========================================================
@@ -167,6 +162,5 @@ jobs:
           kubeconfig: ${{ secrets.KUBE_CONFIG }}
       - run: |
           cd booking_service/k8s
-          kubectl apply -f deployment.yaml
-          kubectl apply -f service.yaml
+          kubectl apply -f .
           kubectl rollout restart deployment booking-service-deployment
