@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: event-service-config
+data:
+  PORT: "5002"
+  DB_USER: "eventadmin"
+  DB_HOST: "event-postgres-hiran-01.postgres.database.azure.com"
+  DB_NAME: "event_service_db"
+  DB_PORT: "5432"
+  NODE_ENV: "production"
+  RABBITMQ_URL: "amqps://vvhnggvc:ETmldWVsd5VeVlvWzJg44tYYhVf9SiI0@toucan.lmq.cloudamqp.com/vvhnggvc"
