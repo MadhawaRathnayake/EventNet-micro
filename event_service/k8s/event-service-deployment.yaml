@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: event-service-deployment
+  labels:
+    app: event-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: event-service
+  template:
+    metadata:
+      labels:
+        app: event-service
+    spec:
+      containers:
+        - name: event-service
+          image: eventregistryhiran01.azurecr.io/event-service:v5
+          ports:
+            - containerPort: 5002
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: event-service-config
+                  key: PORT
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: event-service-config
+                  key: DB_USER
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: event-service-config
+                  key: DB_HOST
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: event-service-config
+                  key: DB_NAME
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: event-service-config
+                  key: DB_PORT
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: event-service-config
+                  key: NODE_ENV
+            - name: RABBITMQ_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: event-service-config
+                  key: RABBITMQ_URL
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: event-service-secret
+                  key: DB_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /api/events
+              port: 5002
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/events
+              port: 5002
+            initialDelaySeconds: 20
+            periodSeconds: 20

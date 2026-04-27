@@ -1,0 +1,35 @@
+
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: event-service-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: event_service_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  event-service:
+    build: .
+    container_name: event-service-app
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      PORT: 5002
+      DB_USER: postgres
+      DB_HOST: postgres
+      DB_NAME: event_service_db
+      DB_PASSWORD: 1234
+      DB_PORT: 5432
+    ports:
+      - "5002:5002"
+
+volumes:
+  postgres_data:

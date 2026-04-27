@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service-deployment
+spec:
+  replicas: 1 # This tells AKS to run exactly 1 copy of your Node.js app
+  selector:
+    matchLabels:
+      app: user-service
+  template: # This is the actual blueprint for the container
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+      - name: user-service-container
+        # This points exactly to the image you pushed to the shared ACR!
+        image: eventregistryhiran01.azurecr.io/user_service:v1
+        ports:
+        - containerPort: 5000 # IMPORTANT: Change this if your Node.js app uses a different port (like 8080)
+        env:
+        # Here we pull the secrets from the vault and inject them as environment variables
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: user-service-secrets
+              key: DATABASE_URL
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: user-service-secrets
+              key: JWT_SECRET
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: user-service-secrets
+              key: GOOGLE_CLIENT_ID

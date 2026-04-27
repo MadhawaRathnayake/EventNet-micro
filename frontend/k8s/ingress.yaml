@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: event-frontend-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: / # This will route ALL traffic by default to the frontend
+        pathType: Prefix
+        backend:
+          service:
+            name: event-frontend-service
+            port:
+              # IMPORTANT: This must match the 'port' defined in your service.yaml (which is 80)
+              number: 80
