@@ -17,7 +17,7 @@ spec:
       containers:
       - name: booking-service
         # UPDATE THIS LINE when you push your image to a registry (e.g., your-acr.azurecr.io/booking-service:latest)
-        image: eventregistryhiran01.azurecr.io/booking-service:latest
+        image: eventregistryhiran01.azurecr.io/booking-service:v1 
         imagePullPolicy: Always
         ports:
         - containerPort: 5001
@@ -42,9 +42,9 @@ spec:
           value: "true"
         # Other Services (Update with Event/User service Kubernetes ClusterIP URLs)
         - name: EVENT_SERVICE_BASE_URL
-          value: "http://event-service:5002"
+          value: "http://event-service:5002/api"
         - name: USER_SERVICE_BASE_URL
-          value: "http://user-service:80"
+          value: "http://user-service:5000/api"
         # Azure Service Bus
         - name: SERVICE_BUS_CONNECTION_STRING
           valueFrom:
