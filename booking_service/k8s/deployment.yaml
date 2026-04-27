@@ -42,9 +42,9 @@ spec:
           value: "true"
         # Other Services (Update with Event/User service Kubernetes ClusterIP URLs)
         - name: EVENT_SERVICE_BASE_URL
-          value: "http://85.211.224.91/api/event-service"
+          value: "http://event-service:5002"
         - name: USER_SERVICE_BASE_URL
-          value: "http://85.211.224.91/api/user-service"
+          value: "http://user-service:5000"
         # Azure Service Bus
         - name: SERVICE_BUS_CONNECTION_STRING
           valueFrom:
