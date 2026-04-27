@@ -4,6 +4,9 @@ import React, { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
+const BACKEND_API_URL =
+  process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://user-service/api';
+
 export default function SignUpPage() {
   const router = useRouter();
   const [firstName, setFirstName] = useState('');
@@ -22,8 +25,7 @@ export default function SignUpPage() {
     setError('');
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const response = await fetch(`${apiUrl}/users/auth/register`, {
+      const response = await fetch(`${BACKEND_API_URL}/users/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, first_name: firstName, last_name: lastName })
@@ -40,9 +42,8 @@ export default function SignUpPage() {
           signIn('credentials', { email, password, callbackUrl: '/' });
         }, 1500);
       }
-    } catch (err) {
-      console.error(err);
-      setError('An unexpected error occurred. Connecting to backend failed.');
+    } catch {
+      setError('Cannot connect to auth backend. Please ensure user service is running.');
     }
   };
 

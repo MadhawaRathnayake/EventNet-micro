@@ -13,6 +13,19 @@ type Event = {
   imageUrl: string;
 };
 
+type ApiEvent = {
+  id: number;
+  title: string;
+  description: string;
+  venue: string;
+  event_date: string;
+  event_time: string;
+  image_url: string;
+};
+
+const EVENTS_API_URL =
+  process.env.NEXT_PUBLIC_EVENTS_API_URL || "http://event-service/api";
+
 const EventsSection = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(false);
@@ -21,7 +34,7 @@ const EventsSection = () => {
     setLoading(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events`
+        `${EVENTS_API_URL}/events`
       );
 
       if (!res.ok) {
@@ -30,7 +43,7 @@ const EventsSection = () => {
 
       const data = await res.json();
 
-      const formatted = data.map((e: any) => ({
+      const formatted = (data as ApiEvent[]).map((e) => ({
         id: e.id,
         name: e.title,
         description: e.description,
@@ -41,8 +54,9 @@ const EventsSection = () => {
       }));
 
       setEvents(formatted);
-    } catch (error) {
-      console.error("Failed to load events:", error);
+    } catch {
+      // Keep UI stable if events service is unavailable in local development.
+      setEvents([]);
     } finally {
       setLoading(false);
     }
