@@ -2,7 +2,7 @@
 // API client for Payment Service (runs on port 5003)
 
 const PAYMENT_API_URL =
-  process.env.NEXT_PUBLIC_PAYMENT_API_URL || "http://localhost:5003/api";
+  process.env.NEXT_PUBLIC_PAYMENT_API_URL || "http://payment-service/api";
 
 interface PaymentApiOptions {
   method?: string;
@@ -10,6 +10,16 @@ interface PaymentApiOptions {
   token: string;
   params?: Record<string, string | number>;
 }
+
+type PaymentApiErrorResponse = {
+  error?: string;
+  message?: string;
+};
+
+type PaymentApiError = Error & {
+  status?: number;
+  data?: PaymentApiErrorResponse;
+};
 
 async function paymentClient<T = unknown>(
   endpoint: string,
@@ -35,9 +45,13 @@ async function paymentClient<T = unknown>(
   const data = await res.json();
 
   if (!res.ok) {
-    const err = new Error(data.error || data.message || "Payment API error");
-    (err as any).status = res.status;
-    (err as any).data = data;
+    const err = new Error(
+      (data as PaymentApiErrorResponse).error ||
+      (data as PaymentApiErrorResponse).message ||
+      "Payment API error"
+    ) as PaymentApiError;
+    err.status = res.status;
+    err.data = data as PaymentApiErrorResponse;
     throw err;
   }
 

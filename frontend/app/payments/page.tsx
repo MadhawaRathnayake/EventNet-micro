@@ -26,6 +26,12 @@ const METHOD_LABELS: Record<string, string> = {
   digital_wallet: "📱 Digital Wallet",
 };
 
+type RefundError = {
+  data?: {
+    error?: string;
+  };
+};
+
 export default function PaymentsPage() {
   const { data: session, status: authStatus } = useSession();
 
@@ -79,9 +85,10 @@ export default function PaymentsPage() {
         prev.map((p) => (p.id === paymentId ? { ...p, status: "refunded" as const } : p))
       );
       setToast({ message: "Payment refunded successfully!", type: "success" });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const refundError = err as RefundError;
       setToast({
-        message: err?.data?.error || "Failed to process refund.",
+        message: refundError?.data?.error || "Failed to process refund.",
         type: "error",
       });
     } finally {
