@@ -23,8 +23,7 @@ type ApiEvent = {
   image_url: string;
 };
 
-const EVENTS_API_URL =
-  process.env.NEXT_PUBLIC_EVENTS_API_URL || "http://event-service/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 const EventsSection = () => {
   const [events, setEvents] = useState<Event[]>([]);
@@ -34,7 +33,7 @@ const EventsSection = () => {
     setLoading(true);
     try {
       const res = await fetch(
-        `${EVENTS_API_URL}/events`
+        `${API_BASE}/events`
       );
 
       if (!res.ok) {

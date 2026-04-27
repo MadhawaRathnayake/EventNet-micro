@@ -42,8 +42,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# We also copy the .env.local so server-side secrets are available to the Node.js server at runtime
-COPY --from=builder --chown=nextjs:nodejs /app/.env ./
+# Don't bake env files into the image.
+# In Kubernetes, NEXTAUTH_* and NEXT_PUBLIC_* are injected at runtime via env vars / secrets.
 
 USER nextjs
 

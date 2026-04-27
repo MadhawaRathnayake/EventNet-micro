@@ -1,8 +1,9 @@
 // utils/paymentApi.ts
 // API client for Payment Service (runs on port 5003)
 
-const PAYMENT_API_URL =
-  process.env.NEXT_PUBLIC_PAYMENT_API_URL || "http://payment-service/api";
+// Prefer a single ingress base like "http(s)://<ip>/api".
+// Fallback to "/api" so frontend can work behind same ingress host.
+const PAYMENT_API_URL = process.env.NEXT_PUBLIC_PAYMENT_API_URL || "/api";
 
 interface PaymentApiOptions {
   method?: string;

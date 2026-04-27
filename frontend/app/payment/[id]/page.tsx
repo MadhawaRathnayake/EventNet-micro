@@ -66,7 +66,7 @@ function PaymentPageInner() {
       try {
         setLoadingEvent(true);
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_EVENTS_API_URL || 'http://event-service/api'}/events/${eventId}`
+          `${process.env.NEXT_PUBLIC_API_URL || '/api'}/events/${eventId}`
         );
         if (res.ok) {
           const data = await res.json();

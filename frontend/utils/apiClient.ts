@@ -1,6 +1,8 @@
 // utils/apiClient.ts
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://booking-service/api';
+// Prefer a single ingress base like "http(s)://<ip>/api".
+// Fallback to "/api" so frontend can work behind same ingress host.
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 async function client(endpoint: string, customConfig: RequestInit = {}) {
   const config = {

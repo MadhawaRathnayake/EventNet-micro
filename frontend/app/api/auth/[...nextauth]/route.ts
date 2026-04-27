@@ -12,14 +12,24 @@ const toNumericIdString = (value: unknown): string => {
   return /^\d+$/.test(stringValue) ? stringValue : "";
 };
 
-const BACKEND_API_URL =
-  process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://user-service/api";
+// NextAuth route handlers run on the server (Node), so backend calls MUST use an absolute URL.
+// IMPORTANT: don't throw at module-evaluation time (breaks `next build` inside Docker).
+const getBackendApiBaseUrl = (): string => {
+  const base =
+    process.env.NEXT_PUBLIC_BACKEND_API_URL ||
+    (process.env.NEXTAUTH_URL ? `${process.env.NEXTAUTH_URL}/api` : "");
+  return base;
+};
 
 const safeBackendFetch = async (path: string, body: Record<string, unknown>) => {
+  const baseUrl = getBackendApiBaseUrl();
+  if (!baseUrl.startsWith("http")) {
+    throw new Error("BACKEND_API_URL_NOT_CONFIGURED");
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    return await fetch(`${BACKEND_API_URL}${path}`, {
+    return await fetch(`${baseUrl}${path}`, {
       method: "POST",
       body: JSON.stringify(body),
       headers: { "Content-Type": "application/json" },
