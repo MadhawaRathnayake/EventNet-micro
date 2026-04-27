@@ -30,6 +30,9 @@ const NavigationBar = () => {
           </>
         ) : (
           <>
+            <Link href="/payments" className="hover:text-gray-300">
+              My Payments
+            </Link>
             <Link href="/profile" className="hover:text-gray-300">
               Profile
             </Link>
