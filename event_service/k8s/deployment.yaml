@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: event-service
-          image: eventregistryhiran01.azurecr.io/event-service:v5
+          image: eventregistryhiran01.azurecr.io/event-service:latest
           ports:
             - containerPort: 5002
           env:

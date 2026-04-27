@@ -1,0 +1,172 @@
+name: Deploy Complete Application
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  # =========================================================
+  # JOB 1: DETECT CHANGES
+  # This job looks at the commit and figures out exactly which folders changed.
+  # =========================================================
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      user: ${{ steps.filter.outputs.user }}
+      event: ${{ steps.filter.outputs.event }}
+      payment: ${{ steps.filter.outputs.payment }}
+      booking: ${{ steps.filter.outputs.booking }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend: 'frontend/**'
+            user: 'user_service/**'
+            event: 'event_service/**'
+            payment: 'payment_service/**'
+            booking: 'booking_service/**' # Make sure your folder is renamed to booking_service!
+
+  # =========================================================
+  # JOB 2: FRONTEND
+  # =========================================================
+  deploy-frontend:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/docker-login@v1
+        with:
+          login-server: eventregistryhiran01.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+      - run: |
+          cd frontend
+          docker build -t eventregistryhiran01.azurecr.io/eventnet_frontend:latest .
+          docker push eventregistryhiran01.azurecr.io/eventnet_frontend:latest
+      - uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+      - run: |
+          cd frontend/k8s
+          kubectl apply -f deployment.yaml
+          kubectl apply -f service.yaml
+          kubectl apply -f ingress.yaml
+          kubectl rollout restart deployment event-frontend-deployment
+
+  # =========================================================
+  # JOB 3: USER SERVICE
+  # =========================================================
+  deploy-user-service:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.user == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/docker-login@v1
+        with:
+          login-server: eventregistryhiran01.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+      - run: |
+          cd user_service
+          docker build -t eventregistryhiran01.azurecr.io/user_service:latest .
+          docker push eventregistryhiran01.azurecr.io/user_service:latest
+      - uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+      - run: |
+          cd user_service/k8s
+          kubectl apply -f deployment.yaml
+          kubectl apply -f service.yaml
+          kubectl rollout restart deployment user-service-deployment
+
+  # =========================================================
+  # JOB 4: EVENT SERVICE
+  # =========================================================
+  deploy-event-service:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.event == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/docker-login@v1
+        with:
+          login-server: eventregistryhiran01.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+      - run: |
+          cd event_service
+          docker build -t eventregistryhiran01.azurecr.io/event_service:latest .
+          docker push eventregistryhiran01.azurecr.io/event_service:latest
+      - uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+      - run: |
+          cd event_service/k8s
+          kubectl apply -f deployment.yaml
+          kubectl apply -f service.yaml
+          kubectl rollout restart deployment event-service-deployment
+
+  # =========================================================
+  # JOB 5: PAYMENT SERVICE
+  # =========================================================
+  deploy-payment-service:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.payment == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/docker-login@v1
+        with:
+          login-server: eventregistryhiran01.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+      - run: |
+          cd payment_service
+          docker build -t eventregistryhiran01.azurecr.io/payment_service:latest .
+          docker push eventregistryhiran01.azurecr.io/payment_service:latest
+      - uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+      - run: |
+          cd payment_service/k8s
+          kubectl apply -f deployment.yaml
+          kubectl apply -f service.yaml
+          kubectl rollout restart deployment payment-service
+
+  # =========================================================
+  # JOB 6: BOOKING SERVICE
+  # =========================================================
+  deploy-booking-service:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.booking == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/docker-login@v1
+        with:
+          login-server: eventregistryhiran01.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+      - run: |
+          cd booking_service
+          docker build -t eventregistryhiran01.azurecr.io/booking_service:latest .
+          docker push eventregistryhiran01.azurecr.io/booking_service:latest
+      - uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+      - run: |
+          cd booking_service/k8s
+          kubectl apply -f deployment.yaml
+          kubectl apply -f service.yaml
+          kubectl rollout restart deployment booking-service-deployment
