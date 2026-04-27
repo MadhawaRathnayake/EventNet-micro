@@ -84,12 +84,13 @@ const handler = NextAuth({
   callbacks: {
     async jwt({ token, account, user }) {
 
-      // ─── LOG 3: See what NextAuth passes into the jwt callback ───
+      // LOG 3: See what NextAuth passes into the jwt callback
       console.log("[jwt] user received:", user);
+      console.log("[jwt] token.sub (NextAuth built-in):", token.sub);
       console.log("[jwt] token.userId before any changes:", token.userId);
 
       if (account && account.id_token) {
-        // Google OAuth login
+        // Google OAuth login — fetch database user ID from our backend
         token.idToken = account.id_token;
         try {
           const res = await safeBackendFetch("/users/auth/google", {
@@ -99,13 +100,14 @@ const handler = NextAuth({
             const data = await res.json();
             token.backendToken = data.token;
             token.role = data.user.role;
+            // Store our database ID (not Google's sub)
             token.userId = toNumericIdString(data.user?.id);
           }
         } catch {
           // Ignore backend sync failures
         }
       } else if (user && typeof user === "object" && "backendToken" in user) {
-        // Credentials login — only runs on the FIRST call when user object exists
+        // Credentials login — only runs on the very FIRST call when user object exists
         const typedUser = user as AuthUserLike;
         token.backendToken = typedUser.backendToken;
         token.role = typedUser.role;
@@ -113,28 +115,30 @@ const handler = NextAuth({
           token.userId = toNumericIdString(user.id);
         }
       }
-      // NOTE: On every subsequent call (session refresh), user is undefined.
-      // token.userId is already stored in the JWT from the first call above,
-      // so we don't need to do anything — NextAuth automatically carries it forward.
 
-      // ─── LOG 4: See what token.userId is after all the logic ───
+      // LOG 4: See what token.userId is after all the logic
+      // IMPORTANT: token.sub is ALWAYS set by NextAuth from user.id automatically.
+      // If our custom token.userId was never set (old session cookie), fall back to token.sub.
       console.log("[jwt] token.userId after all logic:", token.userId);
+      console.log("[jwt] token.sub fallback would be:", token.sub);
 
       return token;
     },
     async session({ session, token }) {
 
-      // ─── LOG 5: See what token contains when building the session ───
-      console.log("[session] token.userId:", token.userId);
+      // LOG 5: See what token contains when building the session
+      console.log("[session] token.userId:", token.userId, "token.sub:", token.sub);
 
       session.idToken = token.idToken as string;
       session.backendToken = token.backendToken as string;
       if (session.user) {
-        session.user.id = toNumericIdString(token.userId);
+        // Use our explicit token.userId first; fall back to token.sub which NextAuth ALWAYS sets.
+        const rawId = token.userId || token.sub || "";
+        session.user.id = toNumericIdString(rawId);
         session.user.role = token.role as string;
       }
 
-      // ─── LOG 6: See what session.user.id ends up as ───
+      // LOG 6: See what session.user.id ends up as
       console.log("[session] session.user.id:", session.user?.id);
 
       return session;
