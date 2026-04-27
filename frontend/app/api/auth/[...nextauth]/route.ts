@@ -7,9 +7,10 @@ type AuthUserLike = {
   role?: string;
 };
 
-const toNumericIdString = (value: unknown): string => {
+// Safely converts any value to a non-empty string ID (supports both UUIDs and numeric IDs)
+const toIdString = (value: unknown): string => {
   const stringValue = String(value ?? "").trim();
-  return /^\d+$/.test(stringValue) ? stringValue : "";
+  return stringValue || "";
 };
 
 const BACKEND_API_URL =
@@ -101,7 +102,7 @@ const handler = NextAuth({
             token.backendToken = data.token;
             token.role = data.user.role;
             // Store our database ID (not Google's sub)
-            token.userId = toNumericIdString(data.user?.id);
+            token.userId = toIdString(data.user?.id);
           }
         } catch {
           // Ignore backend sync failures
@@ -112,7 +113,7 @@ const handler = NextAuth({
         token.backendToken = typedUser.backendToken;
         token.role = typedUser.role;
         if (user.id) {
-          token.userId = toNumericIdString(user.id);
+          token.userId = toIdString(user.id);
         }
       }
 
@@ -134,7 +135,7 @@ const handler = NextAuth({
       if (session.user) {
         // Use our explicit token.userId first; fall back to token.sub which NextAuth ALWAYS sets.
         const rawId = token.userId || token.sub || "";
-        session.user.id = toNumericIdString(rawId);
+        session.user.id = toIdString(rawId);
         session.user.role = token.role as string;
       }
 

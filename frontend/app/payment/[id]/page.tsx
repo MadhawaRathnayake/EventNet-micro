@@ -160,8 +160,8 @@ function PaymentPageInner() {
     setErrorMessage("");
 
     try {
-      const userId = Number(session?.user?.id);
-      if (!userId || Number.isNaN(userId)) {
+      const userId = session?.user?.id;
+      if (!userId || userId.trim() === "") {
         throw new Error("User ID is missing. Please sign in again.");
       }
 
