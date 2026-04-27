@@ -13,7 +13,7 @@ const toNumericIdString = (value: unknown): string => {
 };
 
 const BACKEND_API_URL =
-  process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://user-service/api";
+  process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://85.211.224.91/api";
 
 const safeBackendFetch = async (path: string, body: Record<string, unknown>) => {
   const controller = new AbortController();

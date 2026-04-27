@@ -5,7 +5,7 @@ import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 const BACKEND_API_URL =
-  process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://user-service/api';
+  process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://85.211.224.91/api';
 
 export default function SignUpPage() {
   const router = useRouter();
