@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: booking-service
-        image: eventregistryhiran01.azurecr.io/booking-service:v5
+        image: eventregistryhiran01.azurecr.io/booking-service:v6
         imagePullPolicy: Always
         ports:
         - containerPort: 5001

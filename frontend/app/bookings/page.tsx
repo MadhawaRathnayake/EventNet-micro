@@ -28,38 +28,37 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
 
-  useEffect(() => {
-    if (status !== "authenticated") return;
+ useEffect(() => {
+  if (status !== "authenticated") return;
 
-    const load = async () => {
-      try {
-        const rawUserId = session?.user?.id;
-        const userId = Number(rawUserId);
-        if (!Number.isInteger(userId) || userId <= 0) {
-          setBookings([]);
-          return;
-        }
-
-        const res = await api.get(`/bookings/user/${String(userId)}`, {
-          headers: session?.backendToken
-            ? { Authorization: `Bearer ${session.backendToken}` }
-            : {},
-        });
-
-        if (res?.success && Array.isArray(res.data)) {
-          setBookings(res.data);
-        } else {
-          setBookings([]);
-        }
-      } catch {
+  const load = async () => {
+    try {
+      const userId = session?.user?.id;
+      if (!userId) {
         setBookings([]);
-      } finally {
-        setLoadingBookings(false);
+        return;
       }
-    };
 
-    load();
-  }, [status, session?.user?.id, session?.backendToken]);
+      const res = await api.get(`/bookings/user/${userId}`, {
+        headers: session?.backendToken
+          ? { Authorization: `Bearer ${session.backendToken}` }
+          : {},
+      });
+
+      if (res?.success && Array.isArray(res.data)) {
+        setBookings(res.data);
+      } else {
+        setBookings([]);
+      }
+    } catch {
+      setBookings([]);
+    } finally {
+      setLoadingBookings(false);
+    }
+  };
+
+  load();
+}, [status, session?.user?.id, session?.backendToken]);
 
   if (status === "loading") {
     return <div className="text-center mt-20 text-gray-500">Loading Session...</div>;
