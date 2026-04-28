@@ -166,6 +166,8 @@ function PaymentPageInner() {
         throw new Error("User ID is missing. Please sign in again.");
       }
 
+      console.log("[Payment] Reserving booking for userId:", userId);
+
       const bookingRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL || "/api"}/bookings/reserve`, {
         method: "POST",
         headers: {
