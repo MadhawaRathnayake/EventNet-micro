@@ -50,8 +50,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# NOTE: No .env file is copied here.
-# All secrets are injected at runtime by Kubernetes from the 'event-book-secrets' secret.
+# Don't bake env files into the image.
+# In Kubernetes, NEXTAUTH_* and NEXT_PUBLIC_* are injected at runtime via env vars / secrets.
 
 USER nextjs
 

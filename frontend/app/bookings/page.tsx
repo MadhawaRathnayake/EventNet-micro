@@ -1,10 +1,9 @@
-// app/bookings/page.tsx
-'use client';
+"use client";
 
-import { useSession } from 'next-auth/react';
-import { redirect } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { api } from '../../utils/apiClient';
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { redirect } from "next/navigation";
+import { api } from "@/utils/apiClient";
 
 type BookingItem = {
   ticket_name: string;
@@ -22,7 +21,7 @@ export default function BookingsPage() {
   const { data: session, status } = useSession({
     required: true,
     onUnauthenticated() {
-      redirect('/');
+      redirect("/login");
     },
   });
 
@@ -30,36 +29,39 @@ export default function BookingsPage() {
   const [loadingBookings, setLoadingBookings] = useState(true);
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      const fetchBookings = async () => {
-        try {
-          const rawUserId = session?.user?.id;
-          const userId = Number(rawUserId);
-          if (!Number.isInteger(userId) || userId <= 0) {
-            setBookings([]);
-            return;
-          }
+    if (status !== "authenticated") return;
 
-          const res = await api.get(`/bookings/user/${String(userId)}`, {
-            headers: session?.backendToken
-              ? { Authorization: `Bearer ${session.backendToken}` }
-              : {},
-          });
-          if (res.success && res.data) {
-            setBookings(res.data);
-          }
-        } catch (error) {
-          console.error("Failed to fetch bookings:", error);
-        } finally {
-          setLoadingBookings(false);
+    const load = async () => {
+      try {
+        const rawUserId = session?.user?.id;
+        const userId = Number(rawUserId);
+        if (!Number.isInteger(userId) || userId <= 0) {
+          setBookings([]);
+          return;
         }
-      };
 
-      fetchBookings();
-    }
+        const res = await api.get(`/bookings/user/${String(userId)}`, {
+          headers: session?.backendToken
+            ? { Authorization: `Bearer ${session.backendToken}` }
+            : {},
+        });
+
+        if (res?.success && Array.isArray(res.data)) {
+          setBookings(res.data);
+        } else {
+          setBookings([]);
+        }
+      } catch {
+        setBookings([]);
+      } finally {
+        setLoadingBookings(false);
+      }
+    };
+
+    load();
   }, [status, session?.user?.id, session?.backendToken]);
 
-  if (status === 'loading') {
+  if (status === "loading") {
     return <div className="text-center mt-20 text-gray-500">Loading Session...</div>;
   }
 
@@ -68,6 +70,7 @@ export default function BookingsPage() {
       <div className="max-w-7xl mx-auto">
         <div className="bg-white p-8 rounded-xl shadow-lg">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">My Booked Tickets</h2>
+
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -79,6 +82,7 @@ export default function BookingsPage() {
                   <th className="py-3">Status</th>
                 </tr>
               </thead>
+
               <tbody>
                 {loadingBookings ? (
                   <tr>
@@ -97,21 +101,26 @@ export default function BookingsPage() {
                     <tr key={booking.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-4 pl-2 font-medium text-gray-800">BKG-{booking.id}</td>
                       <td className="py-4 text-gray-600">
-                        {booking.items && booking.items.length > 0 
-                          ? booking.items[0].ticket_name 
-                          : "N/A"}
+                        {booking.items && booking.items.length > 0 ? booking.items[0].ticket_name : "N/A"}
                       </td>
                       <td className="py-4 text-gray-600">
                         {new Date(booking.created_at).toLocaleDateString()}
                       </td>
-                      <td className="py-4 font-medium text-gray-800">${booking.total_amount}</td>
+                      <td className="py-4 font-medium text-gray-800">
+                        Rs. {Number(booking.total_amount).toFixed(2)}
+                      </td>
                       <td className="py-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          booking.status === 'CONFIRMED' ? 'bg-green-100 text-green-800' : 
-                          booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
-                          booking.status === 'RESERVED' ? 'bg-blue-100 text-blue-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            booking.status === "CONFIRMED"
+                              ? "bg-green-100 text-green-800"
+                              : booking.status === "CANCELLED"
+                                ? "bg-red-100 text-red-800"
+                                : booking.status === "RESERVED"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
                           {booking.status}
                         </span>
                       </td>
@@ -126,3 +135,4 @@ export default function BookingsPage() {
     </div>
   );
 }
+

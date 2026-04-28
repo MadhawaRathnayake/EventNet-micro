@@ -66,7 +66,7 @@ function PaymentPageInner() {
       try {
         setLoadingEvent(true);
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_EVENTS_API_URL || 'http://85.211.224.91/api'}/events/${eventId}`
+          `${process.env.NEXT_PUBLIC_API_URL || '/api'}/events/${eventId}`
         );
         if (res.ok) {
           const data = await res.json();
@@ -160,46 +160,47 @@ function PaymentPageInner() {
     setErrorMessage("");
 
     try {
-      const userId = session?.user?.id;
-      if (!userId || userId.trim() === "") {
+      // 1. Create booking reservation first
+      const userId = Number(session?.user?.id);
+      if (!userId || Number.isNaN(userId)) {
         throw new Error("User ID is missing. Please sign in again.");
       }
 
-      const reserveResult = await api.post(
-        "/bookings/reserve",
-        {
-          userId,
-          items: [
-            {
-              eventId: Number(eventId),
-              ticketTypeId: Number(ticketTypeId),
-              ticketName,
-              quantity: 1,
-              unitPrice: parseFloat(ticketPrice),
-            },
-          ],
+      const bookingRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:5001/api"}/bookings/reserve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.backendToken}`,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${session.backendToken}`,
-          },
-        }
-      );
+        body: JSON.stringify({
+          userId,
+          items: [{
+            eventId: Number(eventId),
+            ticketTypeId: Number(ticketTypeId),
+            ticketName,
+            quantity: 1,
+            unitPrice: parseFloat(ticketPrice)
+          }]
+        }),
+      });
 
-      const reservedBookingId = String(reserveResult?.data?.id || "");
-      if (!reservedBookingId) {
-        throw new Error("Failed to create booking reservation.");
+      const bookingData = await bookingRes.json();
+
+      if (!bookingRes.ok || !bookingData.success) {
+        throw new Error(bookingData.message || "Failed to create booking reservation.");
       }
 
-      setBookingId(reservedBookingId);
-      const cardLast4 = cardNumber.replace(/\s/g, "").slice(-4);
+      // 2. We now have a real booking ID from the database!
+      const realBookingId = String(bookingData.data.id);
+      setBookingId(realBookingId);
+      const cardLast4 = isCard ? cardNumber.replace(/\s/g, "").slice(-4) : undefined;
 
       const result = await createPayment(session.backendToken, {
-        bookingId: reservedBookingId,
+        bookingId: realBookingId,
         amount: parseFloat(ticketPrice),
         currency: "LKR",
         paymentMethod,
-        cardLast4: isCard ? cardLast4 : undefined,
+        cardLast4,
         metadata: {
           eventId,
           eventName,
