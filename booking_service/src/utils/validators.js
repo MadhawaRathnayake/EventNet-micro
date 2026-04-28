@@ -1,9 +1,27 @@
+const isValidUserId = (userId) => {
+  if (typeof userId === 'number') {
+    return Number.isInteger(userId) && userId > 0;
+  }
+
+  if (typeof userId === 'string') {
+    const trimmed = userId.trim();
+    if (trimmed === '') return false;
+
+    // Accept positive integer strings or UUIDs
+    const isNumericId = /^[1-9]\d*$/.test(trimmed);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trimmed);
+    return isNumericId || isUuid;
+  }
+
+  return false;
+};
+
 // Validate the request body for creating a booking
 const validateBookingRequest = (body) => {
   const errors = [];
 
-  if (!body.userId || (typeof body.userId !== 'string' && typeof body.userId !== 'number')) {
-    errors.push('userId is required and must be a valid ID');
+  if (!isValidUserId(body.userId)) {
+    errors.push('userId is required and must be a positive integer or UUID');
   }
 
   if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
@@ -35,8 +53,8 @@ const validateBookingRequest = (body) => {
 const validateReservationRequest = (body) => {
   const errors = [];
 
-  if (!body.userId || (typeof body.userId !== 'string' && typeof body.userId !== 'number')) {
-    errors.push('userId is required and must be a valid ID');
+  if (!isValidUserId(body.userId)) {
+    errors.push('userId is required and must be a positive integer or UUID');
   }
 
   if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
