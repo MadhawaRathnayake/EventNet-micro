@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: booking-service
-        image: eventregistryhiran01.azurecr.io/booking-service:v2
+        image: eventregistryhiran01.azurecr.io/booking-service:v5
         imagePullPolicy: Always
         ports:
         - containerPort: 5001
@@ -39,7 +39,7 @@ spec:
         - name: DB_SSL
           value: "true"
         - name: EVENT_SERVICE_BASE_URL
-          value: "http://event-service:5002/api"
+          value: "http://event-service:5002"
         - name: USER_SERVICE_BASE_URL
           value: "http://user-service:80/api"
         - name: RABBITMQ_URL

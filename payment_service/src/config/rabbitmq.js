@@ -24,9 +24,6 @@ const connectRabbitMQ = async () => {
     for (const [key, queueName] of Object.entries(queues)) {
       await channel.assertQueue(queueName, {
         durable: true,
-        arguments: {
-          'x-message-ttl': 86400000, // 24 hour TTL
-        },
       });
 
       // Bind queue to exchange with routing key

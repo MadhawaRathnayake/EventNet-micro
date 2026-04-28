@@ -25,9 +25,9 @@ module.exports = {
   rabbitmq: {
     url: process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672',
     queues: {
-      paymentRequest: 'booking.payment.request',
-      paymentCompleted: 'payment.completed',
-      paymentFailed: 'payment.failed',
+      paymentRequest: 'payment.request',
+      paymentCompleted: 'payment-result-queue',
+      paymentFailed: 'payment-result-queue',
       paymentRefunded: 'payment.refunded',
     },
     exchange: 'payment_exchange',

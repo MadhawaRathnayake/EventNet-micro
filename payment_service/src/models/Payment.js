@@ -10,13 +10,13 @@ const Payment = sequelize.define(
       primaryKey: true,
     },
     bookingId: {
-      type: DataTypes.UUID,
+      type: DataTypes.INTEGER,
       allowNull: false,
       field: 'booking_id',
       comment: 'Reference to the booking in Booking Service',
     },
     userId: {
-      type: DataTypes.UUID,
+      type: DataTypes.INTEGER,
       allowNull: false,
       field: 'user_id',
       comment: 'Reference to the user in User Service',

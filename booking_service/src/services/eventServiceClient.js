@@ -2,7 +2,6 @@ const axios = require('axios');
 
 const EVENT_SERVICE_BASE_URL = process.env.EVENT_SERVICE_BASE_URL || 'http://localhost:5002';
 
-// Create an axios instance for Event Service
 const eventServiceApi = axios.create({
   baseURL: EVENT_SERVICE_BASE_URL,
   timeout: 5000,
@@ -11,39 +10,47 @@ const eventServiceApi = axios.create({
   }
 });
 
-// Check ticket availability from Event Service
 const checkTicketAvailability = async (eventId, ticketTypeId, quantity) => {
   try {
     console.log(`[EventService] Checking availability — Event: ${eventId}, TicketType: ${ticketTypeId}, Qty: ${quantity}`);
-    const response = await eventServiceApi.get(`/api/events/${eventId}/tickets/${ticketTypeId}`);
 
-    if (response.data && response.data.availableQuantity !== undefined) {
-      const available = response.data.availableQuantity >= quantity;
-      console.log(`[EventService] Available: ${response.data.availableQuantity}, Requested: ${quantity}, Result: ${available ? 'OK' : 'INSUFFICIENT'}`);
-      return {
-        available,
-        availableQuantity: response.data.availableQuantity
-      };
+    // Use /api/events/:id which returns event + ticketTypes
+    const response = await eventServiceApi.get(`/api/events/${eventId}`);
+
+    const { ticketTypes } = response.data;
+
+    if (!ticketTypes || ticketTypes.length === 0) {
+      console.warn(`[EventService] No ticket types found for event ${eventId}`);
+      return { available: false, availableQuantity: 0 };
     }
 
-    // If the Event Service response format is different, assume available
-    console.warn('[EventService] Unexpected response format, assuming available');
-    return { available: true, availableQuantity: null };
+    // Find the specific ticket type
+    const ticketType = ticketTypes.find(t => t.id === ticketTypeId);
+
+    if (!ticketType) {
+      console.warn(`[EventService] TicketType ${ticketTypeId} not found for event ${eventId}`);
+      return { available: false, availableQuantity: 0 };
+    }
+
+    const availableQuantity = ticketType.available_quantity;
+    const available = availableQuantity >= quantity;
+
+    console.log(`[EventService] Available: ${availableQuantity}, Requested: ${quantity}, Result: ${available ? 'OK' : 'INSUFFICIENT'}`);
+
+    return { available, availableQuantity };
+
   } catch (err) {
-    // If Event Service is unreachable, log warning but allow booking to proceed
-    // This ensures Booking Service works independently during development
     if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
-      console.warn(`[EventService] Service unreachable at ${EVENT_SERVICE_BASE_URL} — proceeding without availability check`);
+      console.warn(`[EventService] Service unreachable — proceeding without availability check`);
       return { available: true, availableQuantity: null };
     }
 
     if (err.response && err.response.status === 404) {
-      console.warn(`[EventService] Event ${eventId} or TicketType ${ticketTypeId} not found`);
+      console.warn(`[EventService] Event ${eventId} not found`);
       return { available: false, availableQuantity: 0 };
     }
 
     console.error('[EventService] Error checking availability:', err.message);
-    // Allow booking to proceed even if Event Service has errors
     return { available: true, availableQuantity: null };
   }
 };

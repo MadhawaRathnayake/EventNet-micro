@@ -40,36 +40,29 @@ class MessageQueueService {
    * Publish payment completed event
    */
   static async publishPaymentCompleted(paymentData) {
-    await this.publish(config.rabbitmq.queues.paymentCompleted, {
-      event: 'PAYMENT_COMPLETED',
-      data: {
-        paymentId: paymentData.id,
-        bookingId: paymentData.bookingId,
-        userId: paymentData.userId,
-        amount: paymentData.amount,
-        currency: paymentData.currency,
-        transactionId: paymentData.transactionId,
-        status: 'completed',
-      },
-    });
-  }
+  await this.publish(config.rabbitmq.queues.paymentCompleted, {
+    messageId: require('uuid').v4(),
+    eventType: 'PAYMENT_SUCCESS',        // ← booking service expects this
+    bookingId: paymentData.bookingId,
+    paymentId: paymentData.id,
+    status: 'completed',
+    amount: paymentData.amount,
+  });
+}
 
   /**
    * Publish payment failed event
    */
   static async publishPaymentFailed(paymentData, reason) {
-    await this.publish(config.rabbitmq.queues.paymentFailed, {
-      event: 'PAYMENT_FAILED',
-      data: {
-        paymentId: paymentData.id,
-        bookingId: paymentData.bookingId,
-        userId: paymentData.userId,
-        amount: paymentData.amount,
-        failureReason: reason,
-        status: 'failed',
-      },
-    });
-  }
+  await this.publish(config.rabbitmq.queues.paymentFailed, {
+    messageId: require('uuid').v4(),
+    eventType: 'PAYMENT_FAILED',         // ← booking service expects this
+    bookingId: paymentData.bookingId,
+    paymentId: paymentData.id,
+    status: 'failed',
+    reason: reason,
+  });
+}
 
   /**
    * Publish payment refunded event
