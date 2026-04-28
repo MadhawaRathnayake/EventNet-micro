@@ -491,8 +491,8 @@ event_book_microservice/
 
 ## 🤝 Team
 
-| Member | Service |
-|--------|---------|
+| Member | Reg. No. |Service |
+|--------|---------|---------|
 | R.M.D. Madhusankha | EG/2021/4655 | User Service, Frontend, CI/CD, Infrastructure |
 | T.M. Threemavithana | EG/2021/4835 | Payment Service |
 | W.A.H.U.W. Arachchi | EG/2021/4410 | Event Service, ACR/AKS Setup |
