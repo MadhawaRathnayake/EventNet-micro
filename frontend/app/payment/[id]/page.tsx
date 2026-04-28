@@ -5,18 +5,10 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import React, { useEffect, useState, Suspense } from "react";
 import { createPayment, type PaymentData } from "@/utils/paymentApi";
-import { api } from "@/utils/apiClient";
 
 // ─── Types ──────────────────────────────────────────────────────
 type PaymentMethod = "credit_card" | "debit_card" | "bank_transfer" | "digital_wallet";
 type PaymentStep = "form" | "processing" | "success" | "failed";
-type PaymentApiError = {
-  data?: {
-    data?: PaymentData;
-    error?: string;
-  };
-  message?: string;
-};
 
 // ─── Inner Component (uses useSearchParams) ─────────────────────
 function PaymentPageInner() {
@@ -58,7 +50,6 @@ function PaymentPageInner() {
   const [step, setStep] = useState<PaymentStep>("form");
   const [paymentResult, setPaymentResult] = useState<PaymentData | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
-  const [bookingId, setBookingId] = useState<string | null>(null);
 
   // ─── Load event details ───────────────────────────────────────
   useEffect(() => {
@@ -66,7 +57,7 @@ function PaymentPageInner() {
       try {
         setLoadingEvent(true);
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || '/api'}/events/${eventId}`
+          `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}`
         );
         if (res.ok) {
           const data = await res.json();
@@ -294,12 +285,6 @@ function PaymentPageInner() {
                 Completed
               </span>
             </div>
-            {bookingId && (
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Booking ID</span>
-                <span className="text-sm font-medium text-gray-800">BKG-{bookingId}</span>
-              </div>
-            )}
           </div>
 
           <div className="flex gap-3">
