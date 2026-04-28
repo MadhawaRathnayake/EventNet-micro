@@ -5,7 +5,7 @@ metadata:
   labels:
     app: booking-service
 spec:
-  replicas: 2 # Number of pod instances running
+  replicas: 2
   selector:
     matchLabels:
       app: booking-service
@@ -16,15 +16,13 @@ spec:
     spec:
       containers:
       - name: booking-service
-        # UPDATE THIS LINE when you push your image to a registry (e.g., your-acr.azurecr.io/booking-service:latest)
-        image: eventregistryhiran01.azurecr.io/booking-service:v1 
+        image: eventregistryhiran01.azurecr.io/booking-service:v1
         imagePullPolicy: Always
         ports:
         - containerPort: 5001
         env:
         - name: PORT
           value: "5001"
-        # Database Environment Variables (Use Kubernetes Secrets in production!)
         - name: DB_HOST
           value: "booking-postgres-pasindu.postgres.database.azure.com"
         - name: DB_PORT
@@ -40,26 +38,19 @@ spec:
               key: DB_PASSWORD
         - name: DB_SSL
           value: "true"
-        # Other Services (Update with Event/User service Kubernetes ClusterIP URLs)
         - name: EVENT_SERVICE_BASE_URL
           value: "http://event-service:5002/api"
         - name: USER_SERVICE_BASE_URL
           value: "http://user-service:80/api"
-        # Azure Service Bus
-        - name: SERVICE_BUS_CONNECTION_STRING
+        - name: RABBITMQ_URL
           valueFrom:
             secretKeyRef:
               name: booking-service-secrets
-              key: SERVICE_BUS_CONNECTION_STRING
-        - name: PAYMENT_REQUEST_QUEUE_NAME
-          value: "booking-payment-request-queue"
+              key: RABBITMQ_URL
         - name: PAYMENT_RESULT_QUEUE_NAME
           value: "payment-result-queue"
-        - name: BOOKING_CONFIRMED_QUEUE_NAME
-          value: "booking-confirmed-queue"
         - name: BOOKING_EXPIRY_MINUTES
           value: "10"
-        # Health checks to ensure the container is running properly
         livenessProbe:
           httpGet:
             path: /

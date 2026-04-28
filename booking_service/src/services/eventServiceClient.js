@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const EVENT_SERVICE_BASE_URL = process.env.EVENT_SERVICE_BASE_URL || 'http://localhost:5001';
+const EVENT_SERVICE_BASE_URL = process.env.EVENT_SERVICE_BASE_URL || 'http://localhost:5002';
 
 // Create an axios instance for Event Service
 const eventServiceApi = axios.create({

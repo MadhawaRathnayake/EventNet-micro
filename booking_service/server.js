@@ -4,7 +4,6 @@ const { startConsumer } = require('./src/services/queueConsumer');
 
 const PORT = process.env.PORT || 5001;
 
-// Start the Express server
 app.listen(PORT, async () => {
   console.log(`========================================`);
   console.log(`  Booking Service running on port ${PORT}`);
@@ -19,13 +18,13 @@ app.listen(PORT, async () => {
     console.error('[DB] PostgreSQL connection failed:', err.message);
   }
 
-  // Start the Azure Service Bus queue consumer
+  // Start RabbitMQ consumer
   try {
-    if (process.env.SERVICE_BUS_CONNECTION_STRING) {
+    if (process.env.RABBITMQ_URL) {
       await startConsumer();
       console.log('[Queue] Payment result queue consumer started');
     } else {
-      console.warn('[Queue] SERVICE_BUS_CONNECTION_STRING not set — queue consumer not started');
+      console.warn('[Queue] RABBITMQ_URL not set — queue consumer not started');
     }
   } catch (err) {
     console.error('[Queue] Failed to start queue consumer:', err.message);
