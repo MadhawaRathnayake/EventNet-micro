@@ -167,3 +167,377 @@ jobs:
           cd booking_service/k8s
           kubectl apply -f .
           kubectl rollout restart deployment booking-service-deployment
+
+  # =========================================================
+  # JOB 7: DOCKER IMAGE SECURITY SCAN (Trivy)
+  # Scans every newly-built image for OS & library vulnerabilities.
+  # Runs in parallel with deployments so it doesn't slow anything down.
+  # =========================================================
+  security-scan:
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: frontend
+            image: eventregistryhiran01.azurecr.io/eventnet_frontend:latest
+            changed: ${{ needs.detect-changes.outputs.frontend }}
+          - service: user_service
+            image: eventregistryhiran01.azurecr.io/user_service:latest
+            changed: ${{ needs.detect-changes.outputs.user }}
+          - service: event_service
+            image: eventregistryhiran01.azurecr.io/event_service:latest
+            changed: ${{ needs.detect-changes.outputs.event }}
+          - service: payment_service
+            image: eventregistryhiran01.azurecr.io/payment_service:latest
+            changed: ${{ needs.detect-changes.outputs.payment }}
+          - service: booking_service
+            image: eventregistryhiran01.azurecr.io/booking_service:latest
+            changed: ${{ needs.detect-changes.outputs.booking }}
+    steps:
+      - uses: actions/checkout@v4
+        if: ${{ matrix.changed == 'true' }}
+
+      - name: Log in to ACR
+        if: ${{ matrix.changed == 'true' }}
+        uses: azure/docker-login@v1
+        with:
+          login-server: eventregistryhiran01.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Pull image for scanning
+        if: ${{ matrix.changed == 'true' }}
+        run: docker pull ${{ matrix.image }}
+
+      - name: Run Trivy vulnerability scanner
+        if: ${{ matrix.changed == 'true' }}
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ matrix.image }}
+          format: 'table'
+          exit-code: '0'            # Don't fail the pipeline; report only
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Run Trivy and upload SARIF report
+        if: ${{ matrix.changed == 'true' }}
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ matrix.image }}
+          format: 'sarif'
+          output: 'trivy-${{ matrix.service }}.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Upload Trivy scan results
+        if: ${{ matrix.changed == 'true' }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-${{ matrix.service }}.sarif'
+          category: 'trivy-${{ matrix.service }}'
+        continue-on-error: true     # Graceful if GitHub Advanced Security is not enabled
+
+  # =========================================================
+  # JOB 8: VALIDATE KUBERNETES MANIFESTS
+  # Lints every k8s YAML file against the Kubernetes API schema
+  # to catch misconfigurations before they ever hit the cluster.
+  # =========================================================
+  validate-manifests:
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kubeconform
+        run: |
+          curl -sSLo kubeconform.tar.gz \
+            https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
+          tar xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Validate all Kubernetes manifests
+        run: |
+          echo "🔍 Validating Kubernetes manifests..."
+          ERRORS=0
+          for dir in frontend/k8s user_service/k8s event_service/k8s payment_service/k8s booking_service/k8s; do
+            if [ -d "$dir" ]; then
+              echo ""
+              echo "━━━ Checking $dir ━━━"
+              if kubeconform -strict -summary -output text "$dir"/*.yaml; then
+                echo "  ✅ $dir — all manifests valid"
+              else
+                echo "  ❌ $dir — validation errors found"
+                ERRORS=$((ERRORS+1))
+              fi
+            fi
+          done
+          echo ""
+          if [ $ERRORS -gt 0 ]; then
+            echo "⚠️  $ERRORS directory(ies) had validation errors"
+            exit 1
+          else
+            echo "✅ All Kubernetes manifests passed validation"
+          fi
+
+  # =========================================================
+  # JOB 9: POST-DEPLOY HEALTH CHECKS
+  # After all services are deployed, verify that every deployment
+  # has rolled out successfully and all pods are in Ready state.
+  # =========================================================
+  post-deploy-health-check:
+    needs:
+      - deploy-frontend
+      - deploy-user-service
+      - deploy-event-service
+      - deploy-payment-service
+      - deploy-booking-service
+    if: always()       # Run even if some deploy jobs were skipped (unchanged services)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Wait for deployments to stabilize
+        run: sleep 30
+
+      - name: Verify deployment rollout status
+        run: |
+          echo "🩺 Checking deployment rollout status..."
+          echo ""
+          DEPLOYMENTS=(
+            "event-frontend-deployment"
+            "user-service-deployment"
+            "event-service-deployment"
+            "payment-service"
+            "booking-service-deployment"
+          )
+          FAILED=0
+          for dep in "${DEPLOYMENTS[@]}"; do
+            echo "━━━ $dep ━━━"
+            if kubectl rollout status deployment/$dep --timeout=120s 2>/dev/null; then
+              echo "  ✅ $dep — rollout complete"
+            else
+              echo "  ⚠️  $dep — rollout pending or failed (may be unchanged)"
+              FAILED=$((FAILED+1))
+            fi
+            echo ""
+          done
+          if [ $FAILED -gt 0 ]; then
+            echo "⚠️  $FAILED deployment(s) did not reach ready state"
+          else
+            echo "✅ All deployments rolled out successfully"
+          fi
+
+      - name: Check pod health across all services
+        run: |
+          echo "🔎 Pod Health Report"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          SERVICES=("event-frontend" "user-service" "event-service" "payment-service" "booking-service")
+          ALL_HEALTHY=true
+          for svc in "${SERVICES[@]}"; do
+            echo "📦 Service: $svc"
+            PODS=$(kubectl get pods -l app=$svc --no-headers 2>/dev/null)
+            if [ -z "$PODS" ]; then
+              echo "   ⚠️  No pods found for $svc"
+              ALL_HEALTHY=false
+            else
+              echo "$PODS" | while read -r line; do
+                POD_NAME=$(echo "$line" | awk '{print $1}')
+                READY=$(echo "$line" | awk '{print $2}')
+                STATUS=$(echo "$line" | awk '{print $3}')
+                RESTARTS=$(echo "$line" | awk '{print $4}')
+                if [ "$STATUS" = "Running" ]; then
+                  echo "   ✅ $POD_NAME | Ready: $READY | Status: $STATUS | Restarts: $RESTARTS"
+                else
+                  echo "   ❌ $POD_NAME | Ready: $READY | Status: $STATUS | Restarts: $RESTARTS"
+                  ALL_HEALTHY=false
+                fi
+              done
+            fi
+            echo ""
+          done
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          if [ "$ALL_HEALTHY" = true ]; then
+            echo "✅ All pods healthy"
+          fi
+
+      - name: Detect CrashLoopBackOff pods
+        run: |
+          echo "🚨 Checking for CrashLoopBackOff or Error pods..."
+          BAD_PODS=$(kubectl get pods --all-namespaces --field-selector=status.phase!=Running,status.phase!=Succeeded --no-headers 2>/dev/null || true)
+          CRASH_PODS=$(kubectl get pods --no-headers 2>/dev/null | grep -E "CrashLoopBackOff|Error|ImagePullBackOff" || true)
+          if [ -n "$CRASH_PODS" ]; then
+            echo "⚠️  Found problematic pods:"
+            echo "$CRASH_PODS"
+            echo ""
+            echo "📋 Fetching logs from unhealthy pods..."
+            echo "$CRASH_PODS" | awk '{print $1}' | while read -r pod; do
+              echo "━━━ Logs for $pod ━━━"
+              kubectl logs "$pod" --tail=20 2>/dev/null || echo "  (unable to fetch logs)"
+              echo ""
+            done
+          else
+            echo "✅ No CrashLoopBackOff or error pods detected"
+          fi
+
+      - name: Check cluster resource usage
+        run: |
+          echo "📊 Cluster Resource Usage"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "📌 Node Resources:"
+          kubectl top nodes 2>/dev/null || echo "  (metrics-server not available)"
+          echo ""
+          echo "📌 Pod Resources:"
+          kubectl top pods 2>/dev/null || echo "  (metrics-server not available)"
+          echo ""
+          echo "📌 Kubernetes Events (last 10 warnings):"
+          kubectl get events --sort-by='.lastTimestamp' --field-selector type=Warning 2>/dev/null | tail -10 || echo "  (no warning events)"
+
+  # =========================================================
+  # JOB 10: SMOKE TESTS
+  # Hit the live endpoints to confirm each service responds
+  # with a healthy HTTP status code.
+  # =========================================================
+  smoke-tests:
+    needs: post-deploy-health-check
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Run endpoint smoke tests via kubectl port-forward
+        run: |
+          echo "🧪 Running Smoke Tests against live services..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          PASSED=0
+          FAILED=0
+          TOTAL=0
+
+          smoke_test() {
+            local SERVICE_NAME=$1
+            local PORT=$2
+            local ENDPOINT=$3
+            local K8S_SVC=$4
+            local EXPECTED_CODE=${5:-200}
+            TOTAL=$((TOTAL+1))
+
+            echo "🔗 Testing: $SERVICE_NAME ($K8S_SVC:$PORT$ENDPOINT)"
+
+            # Port-forward in background
+            kubectl port-forward svc/$K8S_SVC $PORT:$PORT &
+            PF_PID=$!
+            sleep 3
+
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://localhost:$PORT$ENDPOINT 2>/dev/null || echo "000")
+
+            kill $PF_PID 2>/dev/null || true
+            wait $PF_PID 2>/dev/null || true
+
+            if [ "$HTTP_CODE" = "$EXPECTED_CODE" ]; then
+              echo "   ✅ $SERVICE_NAME — HTTP $HTTP_CODE"
+              PASSED=$((PASSED+1))
+            else
+              echo "   ❌ $SERVICE_NAME — HTTP $HTTP_CODE (expected $EXPECTED_CODE)"
+              FAILED=$((FAILED+1))
+            fi
+            echo ""
+          }
+
+          # Frontend
+          smoke_test "Frontend" 3000 "/" "event-frontend-service" 200
+
+          # User Service
+          smoke_test "User Service" 5000 "/api/users" "user-service" 200
+
+          # Event Service
+          smoke_test "Event Service" 5002 "/api/events" "event-service" 200
+
+          # Payment Service Health
+          smoke_test "Payment Service" 5003 "/api/payments/health" "payment-service" 200
+
+          # Booking Service Health
+          smoke_test "Booking Service" 5001 "/health" "booking-service" 200
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 Smoke Test Results: $PASSED/$TOTAL passed, $FAILED failed"
+          echo ""
+          if [ $FAILED -gt 0 ]; then
+            echo "⚠️  Some smoke tests failed — review service logs above"
+            exit 1
+          else
+            echo "✅ All smoke tests passed!"
+          fi
+
+  # =========================================================
+  # JOB 11: DEPLOYMENT SUMMARY & NOTIFICATION
+  # Collects the result of every job and produces a final report.
+  # =========================================================
+  deployment-summary:
+    needs:
+      - detect-changes
+      - deploy-frontend
+      - deploy-user-service
+      - deploy-event-service
+      - deploy-payment-service
+      - deploy-booking-service
+      - security-scan
+      - validate-manifests
+      - post-deploy-health-check
+      - smoke-tests
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate deployment report
+        run: |
+          echo "╔══════════════════════════════════════════════════╗"
+          echo "║          📋 DEPLOYMENT PIPELINE REPORT           ║"
+          echo "╚══════════════════════════════════════════════════╝"
+          echo ""
+          echo "🕐 Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "📂 Commit:    ${{ github.sha }}"
+          echo "👤 Actor:     ${{ github.actor }}"
+          echo "🌿 Branch:    ${{ github.ref_name }}"
+          echo ""
+          echo "━━━ Change Detection ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Frontend:        ${{ needs.detect-changes.outputs.frontend }}"
+          echo "  User Service:    ${{ needs.detect-changes.outputs.user }}"
+          echo "  Event Service:   ${{ needs.detect-changes.outputs.event }}"
+          echo "  Payment Service: ${{ needs.detect-changes.outputs.payment }}"
+          echo "  Booking Service: ${{ needs.detect-changes.outputs.booking }}"
+          echo ""
+          echo "━━━ Deployment Results ━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          status_icon() {
+            case "$1" in
+              success)  echo "✅" ;;
+              failure)  echo "❌" ;;
+              skipped)  echo "⏭️ " ;;
+              cancelled) echo "🚫" ;;
+              *)        echo "❓" ;;
+            esac
+          }
+
+          echo "  $(status_icon ${{ needs.deploy-frontend.result }})  Frontend:        ${{ needs.deploy-frontend.result }}"
+          echo "  $(status_icon ${{ needs.deploy-user-service.result }})  User Service:    ${{ needs.deploy-user-service.result }}"
+          echo "  $(status_icon ${{ needs.deploy-event-service.result }})  Event Service:   ${{ needs.deploy-event-service.result }}"
+          echo "  $(status_icon ${{ needs.deploy-payment-service.result }})  Payment Service: ${{ needs.deploy-payment-service.result }}"
+          echo "  $(status_icon ${{ needs.deploy-booking-service.result }})  Booking Service: ${{ needs.deploy-booking-service.result }}"
+          echo ""
+          echo "━━━ Quality Gates ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  $(status_icon ${{ needs.security-scan.result }})  Security Scan:      ${{ needs.security-scan.result }}"
+          echo "  $(status_icon ${{ needs.validate-manifests.result }})  Manifest Validation: ${{ needs.validate-manifests.result }}"
+          echo "  $(status_icon ${{ needs.post-deploy-health-check.result }})  Health Checks:      ${{ needs.post-deploy-health-check.result }}"
+          echo "  $(status_icon ${{ needs.smoke-tests.result }})  Smoke Tests:        ${{ needs.smoke-tests.result }}"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🏁 Pipeline complete."
