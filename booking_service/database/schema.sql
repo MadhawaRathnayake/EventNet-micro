@@ -15,7 +15,7 @@ DROP TABLE IF EXISTS bookings CASCADE;
 -- =============================================
 CREATE TABLE bookings (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL,
+    user_id VARCHAR(36) NOT NULL,
     total_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     payment_id VARCHAR(100),

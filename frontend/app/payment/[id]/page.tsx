@@ -161,12 +161,12 @@ function PaymentPageInner() {
 
     try {
       // 1. Create booking reservation first
-      const userId = Number(session?.user?.id);
-      if (!userId || Number.isNaN(userId)) {
+      const userId = session?.user?.id;
+      if (!userId || String(userId).trim() === "") {
         throw new Error("User ID is missing. Please sign in again.");
       }
 
-      const bookingRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:5001/api"}/bookings/reserve`, {
+      const bookingRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL || "/api"}/bookings/reserve`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
