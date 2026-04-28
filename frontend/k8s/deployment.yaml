@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: event-frontend-container
-        image: eventregistryhiran01.azurecr.io/eventnet_frontend:v1
+        image: eventregistryhiran01.azurecr.io/eventnet_frontend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 3000

@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: payment-service
-          image: eventregistryhiran01.azurecr.io/payment-service:v2
+          image: eventregistryhiran01.azurecr.io/payment-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 5003
