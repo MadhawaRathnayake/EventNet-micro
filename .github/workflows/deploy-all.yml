@@ -425,20 +425,21 @@ jobs:
 
           smoke_test() {
             local SERVICE_NAME=$1
-            local PORT=$2
-            local ENDPOINT=$3
-            local K8S_SVC=$4
-            local EXPECTED_CODE=${5:-200}
+            local LOCAL_PORT=$2    # unique port on the runner to bind to
+            local SVC_PORT=$3      # the actual K8s service port (from service.yaml)
+            local ENDPOINT=$4
+            local K8S_SVC=$5
+            local EXPECTED_CODE=${6:-200}
             TOTAL=$((TOTAL+1))
 
-            echo "🔗 Testing: $SERVICE_NAME ($K8S_SVC:$PORT$ENDPOINT)"
+            echo "🔗 Testing: $SERVICE_NAME ($K8S_SVC:$SVC_PORT$ENDPOINT)"
 
-            # Port-forward in background
-            kubectl port-forward svc/$K8S_SVC $PORT:$PORT &
+            # Port-forward: LOCAL_PORT on runner -> SVC_PORT on the K8s service
+            kubectl port-forward svc/$K8S_SVC $LOCAL_PORT:$SVC_PORT &
             PF_PID=$!
-            sleep 3
+            sleep 5
 
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://localhost:$PORT$ENDPOINT 2>/dev/null || echo "000")
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://localhost:$LOCAL_PORT$ENDPOINT 2>/dev/null || echo "000")
 
             kill $PF_PID 2>/dev/null || true
             wait $PF_PID 2>/dev/null || true
@@ -453,20 +454,20 @@ jobs:
             echo ""
           }
 
-          # Frontend
-          smoke_test "Frontend" 3000 "/" "event-frontend-service" 200
+          # Frontend — svc port 80, container 3000
+          smoke_test "Frontend" 8081 80 "/" "event-frontend-service" 200
 
-          # User Service
-          smoke_test "User Service" 5000 "/api/users" "user-service" 200
+          # User Service — svc port 80, container 5000
+          smoke_test "User Service" 8082 80 "/api/users" "user-service" 200
 
-          # Event Service
-          smoke_test "Event Service" 5002 "/api/events" "event-service" 200
+          # Event Service — svc port 5002, container 5002
+          smoke_test "Event Service" 8083 5002 "/api/events" "event-service" 200
 
-          # Payment Service Health
-          smoke_test "Payment Service" 5003 "/api/payments/health" "payment-service" 200
+          # Payment Service — svc port 5003, container 5003
+          smoke_test "Payment Service" 8084 5003 "/api/payments/health" "payment-service" 200
 
-          # Booking Service Health
-          smoke_test "Booking Service" 5001 "/health" "booking-service" 200
+          # Booking Service — svc port 80, container 5001
+          smoke_test "Booking Service" 8085 80 "/health" "booking-service" 200
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "📊 Smoke Test Results: $PASSED/$TOTAL passed, $FAILED failed"
