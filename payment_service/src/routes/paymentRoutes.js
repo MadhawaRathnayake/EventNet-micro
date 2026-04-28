@@ -32,8 +32,8 @@ router.post(
     body('bookingId')
       .notEmpty()
       .withMessage('Booking ID is required')
-      .isUUID()
-      .withMessage('Booking ID must be a valid UUID'),
+      .isInt()
+      .withMessage('Booking ID must be an integer'),
     body('amount')
       .notEmpty()
       .withMessage('Amount is required')
@@ -80,7 +80,7 @@ router.get(
   '/booking/:bookingId',
   authenticate,
   [
-    param('bookingId').isUUID().withMessage('Booking ID must be a valid UUID'),
+    param('bookingId').isInt().withMessage('Booking ID must be an integer')
   ],
   validateRequest,
   getPaymentByBookingId

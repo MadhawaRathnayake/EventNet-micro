@@ -96,10 +96,15 @@ const validateStatusUpdate = (body) => {
 
 // Validate ID parameter
 const validateId = (id) => {
+  if (!id) return null;
+
+  // Accept UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (uuidRegex.test(String(id))) return id;
+
+  // Accept integer format
   const parsed = parseInt(id, 10);
-  if (isNaN(parsed) || parsed <= 0) {
-    return null;
-  }
+  if (isNaN(parsed) || parsed <= 0) return null;
   return parsed;
 };
 

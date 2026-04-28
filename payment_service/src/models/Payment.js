@@ -16,7 +16,7 @@ const Payment = sequelize.define(
       comment: 'Reference to the booking in Booking Service',
     },
     userId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING,
       allowNull: false,
       field: 'user_id',
       comment: 'Reference to the user in User Service',
