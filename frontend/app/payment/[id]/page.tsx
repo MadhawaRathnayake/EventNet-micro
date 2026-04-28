@@ -4,11 +4,18 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import React, { useEffect, useState, Suspense } from "react";
-import { createPayment, type PaymentData } from "@/utils/paymentApi";
+import { type PaymentData } from "@/utils/paymentApi";
 
 // ─── Types ──────────────────────────────────────────────────────
 type PaymentMethod = "credit_card" | "debit_card" | "bank_transfer" | "digital_wallet";
 type PaymentStep = "form" | "processing" | "success" | "failed";
+type PaymentApiError = {
+  data?: {
+    data?: PaymentData;
+    error?: string;
+  };
+  message?: string;
+};
 
 // ─── Inner Component (uses useSearchParams) ─────────────────────
 function PaymentPageInner() {
@@ -50,6 +57,7 @@ function PaymentPageInner() {
   const [step, setStep] = useState<PaymentStep>("form");
   const [paymentResult, setPaymentResult] = useState<PaymentData | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [bookingId, setBookingId] = useState<string | null>(null);
 
   // ─── Load event details ───────────────────────────────────────
   useEffect(() => {
@@ -90,122 +98,121 @@ function PaymentPageInner() {
 
   // ─── Submit payment ───────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!session?.backendToken) {
-    setErrorMessage("You must be logged in to make a payment.");
-    return;
-  }
-
-  // Validate card fields
-  const isCard = paymentMethod === "credit_card" || paymentMethod === "debit_card";
-  if (isCard) {
-    const rawCard = cardNumber.replace(/\s/g, "");
-    if (rawCard.length < 16) { setErrorMessage("Please enter a valid 16-digit card number."); return; }
-    if (expiry.length < 5) { setErrorMessage("Please enter a valid expiration date (MM/YY)."); return; }
-    if (cvv.length < 3) { setErrorMessage("Please enter a valid CVV (3-4 digits)."); return; }
-    if (!nameOnCard.trim()) { setErrorMessage("Please enter the name on card."); return; }
-  }
-  if (paymentMethod === "bank_transfer") {
-    if (!bankName) { setErrorMessage("Please select your bank."); return; }
-    if (accountNumber.length < 8) { setErrorMessage("Please enter a valid account number."); return; }
-    if (!accountHolder.trim()) { setErrorMessage("Please enter the account holder name."); return; }
-  }
-  if (paymentMethod === "digital_wallet") {
-    if (!walletProvider) { setErrorMessage("Please select a wallet provider."); return; }
-    if (!walletId.trim()) { setErrorMessage("Please enter your wallet ID or phone number."); return; }
-  }
-
-  setStep("processing");
-  setErrorMessage("");
-
-  try {
-    const userId = session?.user?.id;
-    if (!userId || String(userId).trim() === "") {
-      throw new Error("User ID is missing. Please sign in again.");
+    if (!session?.backendToken) {
+      setErrorMessage("You must be logged in to make a payment.");
+      return;
     }
 
-    // 1. Create booking — RabbitMQ handles payment automatically
-    const bookingRes = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_API_URL || "/api"}/bookings`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.backendToken}`,
-        },
-        body: JSON.stringify({
-          userId,
-          items: [{
-            eventId: Number(eventId),
-            ticketTypeId: Number(ticketTypeId),
-            ticketName,
-            quantity: 1,
-            unitPrice: parseFloat(ticketPrice),
-          }],
-        }),
+    // Validate card fields
+    const isCard = paymentMethod === "credit_card" || paymentMethod === "debit_card";
+    if (isCard) {
+      const rawCard = cardNumber.replace(/\s/g, "");
+      if (rawCard.length < 16) { setErrorMessage("Please enter a valid 16-digit card number."); return; }
+      if (expiry.length < 5) { setErrorMessage("Please enter a valid expiration date (MM/YY)."); return; }
+      if (cvv.length < 3) { setErrorMessage("Please enter a valid CVV (3-4 digits)."); return; }
+      if (!nameOnCard.trim()) { setErrorMessage("Please enter the name on card."); return; }
+    }
+    if (paymentMethod === "bank_transfer") {
+      if (!bankName) { setErrorMessage("Please select your bank."); return; }
+      if (accountNumber.length < 8) { setErrorMessage("Please enter a valid account number."); return; }
+      if (!accountHolder.trim()) { setErrorMessage("Please enter the account holder name."); return; }
+    }
+    if (paymentMethod === "digital_wallet") {
+      if (!walletProvider) { setErrorMessage("Please select a wallet provider."); return; }
+      if (!walletId.trim()) { setErrorMessage("Please enter your wallet ID or phone number."); return; }
+    }
+
+    setStep("processing");
+    setErrorMessage("");
+
+    try {
+      const userId = session?.user?.id;
+      if (!userId || String(userId).trim() === "") {
+        throw new Error("User ID is missing. Please sign in again.");
       }
-    );
 
-    const bookingData = await bookingRes.json();
-    if (!bookingRes.ok || !bookingData.success) {
-      throw new Error(bookingData.message || "Failed to create booking.");
-    }
-
-    const realBookingId = String(bookingData.data.id);
-    setBookingId(realBookingId);
-
-    // 2. Poll booking status until CONFIRMED or PAYMENT_FAILED
-    const maxAttempts = 15;
-    const pollInterval = 2000; // 2 seconds
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await new Promise((resolve) => setTimeout(resolve, pollInterval));
-
-      const statusRes = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL || "/api"}/bookings/${realBookingId}/status`,
+      // 1. Create booking — RabbitMQ handles payment automatically
+      const bookingRes = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL || "/api"}/bookings`,
         {
-          headers: { Authorization: `Bearer ${session.backendToken}` },
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.backendToken}`,
+          },
+          body: JSON.stringify({
+            userId,
+            items: [{
+              eventId: Number(eventId),
+              ticketTypeId: Number(ticketTypeId),
+              ticketName,
+              quantity: 1,
+              unitPrice: parseFloat(ticketPrice),
+            }],
+          }),
         }
       );
 
-      const statusData = await statusRes.json();
-      const bookingStatus = statusData?.data?.status;
-
-      console.log(`[Payment] Polling booking ${realBookingId} — status: ${bookingStatus}`);
-
-      if (bookingStatus === "CONFIRMED") {
-        setStep("success");
-        // Create a mock paymentResult for the success screen
-        setPaymentResult({
-          id: realBookingId,
-          bookingId: realBookingId,
-          amount: parseFloat(ticketPrice),
-          currency: "LKR",
-          status: "completed",
-          paymentMethod,
-          transactionId: `TXN-${realBookingId}`,
-          createdAt: new Date().toISOString(),
-        });
-        return;
+      const bookingData = await bookingRes.json();
+      if (!bookingRes.ok || !bookingData.success) {
+        throw new Error(bookingData.message || "Failed to create booking.");
       }
 
-      if (bookingStatus === "PAYMENT_FAILED") {
-        throw new Error("Payment was declined. Please try again.");
+      const realBookingId = String(bookingData.data.id);
+      setBookingId(realBookingId);
+
+      // 2. Poll booking status until CONFIRMED or PAYMENT_FAILED
+      const maxAttempts = 15;
+      const pollInterval = 2000; // 2 seconds
+
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+
+        const statusRes = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_API_URL || "/api"}/bookings/${realBookingId}/status`,
+          {
+            headers: { Authorization: `Bearer ${session.backendToken}` },
+          }
+        );
+
+        const statusData = await statusRes.json();
+        const bookingStatus = statusData?.data?.status;
+
+        console.log(`[Payment] Polling booking ${realBookingId} — status: ${bookingStatus}`);
+
+        if (bookingStatus === "CONFIRMED") {
+          setStep("success");
+          setPaymentResult({
+            id: realBookingId,
+            bookingId: realBookingId,
+            amount: parseFloat(ticketPrice),
+            currency: "LKR",
+            status: "completed",
+            paymentMethod,
+            transactionId: `TXN-${realBookingId}`,
+            createdAt: new Date().toISOString(),
+          });
+          return;
+        }
+
+        if (bookingStatus === "PAYMENT_FAILED") {
+          throw new Error("Payment was declined. Please try again.");
+        }
       }
+
+      // Timeout — polling exhausted
+      throw new Error("Payment is taking longer than expected. Please check your bookings.");
+
+    } catch (err: unknown) {
+      const paymentError = err as PaymentApiError;
+      setStep("failed");
+      setErrorMessage(
+        paymentError?.message || "Payment processing failed. Please try again."
+      );
     }
-
-    // Timeout — polling exhausted
-    throw new Error("Payment is taking longer than expected. Please check your bookings.");
-
-  } catch (err: unknown) {
-    const paymentError = err as PaymentApiError;
-    setStep("failed");
-    setErrorMessage(
-      paymentError?.message || "Payment processing failed. Please try again."
-    );
-  }
-};
+  };
 
   // ─── Loading ──────────────────────────────────────────────────
   if (authStatus === "loading") {
@@ -285,6 +292,12 @@ function PaymentPageInner() {
                 Completed
               </span>
             </div>
+            {bookingId && (
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-500">Booking ID</span>
+                <span className="text-sm font-medium text-gray-800">BKG-{bookingId}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3">
@@ -465,12 +478,10 @@ function PaymentPageInner() {
 
                     {/* Visual Card Preview */}
                     <div className="relative bg-gradient-to-br from-gray-800 via-gray-900 to-gray-700 rounded-xl p-6 text-white shadow-lg overflow-hidden">
-                      {/* Background pattern */}
                       <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
                       <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
 
                       <div className="relative">
-                        {/* Card type badge */}
                         <div className="flex justify-between items-start mb-8">
                           <span className="text-xs font-medium bg-white/10 px-2 py-1 rounded">
                             {paymentMethod === "credit_card" ? "CREDIT" : "DEBIT"}
@@ -482,12 +493,10 @@ function PaymentPageInner() {
                           </span>
                         </div>
 
-                        {/* Card number display */}
                         <p className="text-xl font-mono tracking-[0.2em] mb-6">
                           {cardNumber || "•••• •••• •••• ••••"}
                         </p>
 
-                        {/* Card holder & expiry */}
                         <div className="flex justify-between items-end">
                           <div>
                             <p className="text-[10px] text-gray-400 uppercase mb-0.5">Card Holder</p>
