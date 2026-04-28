@@ -5,18 +5,10 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import React, { useEffect, useState, Suspense } from "react";
 import { createPayment, type PaymentData } from "@/utils/paymentApi";
-import { api } from "@/utils/apiClient";
 
 // ─── Types ──────────────────────────────────────────────────────
 type PaymentMethod = "credit_card" | "debit_card" | "bank_transfer" | "digital_wallet";
 type PaymentStep = "form" | "processing" | "success" | "failed";
-type PaymentApiError = {
-  data?: {
-    data?: PaymentData;
-    error?: string;
-  };
-  message?: string;
-};
 
 // ─── Inner Component (uses useSearchParams) ─────────────────────
 function PaymentPageInner() {
@@ -58,7 +50,6 @@ function PaymentPageInner() {
   const [step, setStep] = useState<PaymentStep>("form");
   const [paymentResult, setPaymentResult] = useState<PaymentData | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
-  const [bookingId, setBookingId] = useState<string | null>(null);
 
   // ─── Load event details ───────────────────────────────────────
   useEffect(() => {
@@ -66,7 +57,7 @@ function PaymentPageInner() {
       try {
         setLoadingEvent(true);
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || '/api'}/events/${eventId}`
+          `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}`
         );
         if (res.ok) {
           const data = await res.json();
@@ -160,49 +151,15 @@ function PaymentPageInner() {
     setErrorMessage("");
 
     try {
-      // 1. Create booking reservation first
-      const userId = session?.user?.id;
-      if (!userId || String(userId).trim() === "") {
-        throw new Error("User ID is missing. Please sign in again.");
-      }
-
-      console.log("[Payment] Reserving booking for userId:", userId);
-
-      const bookingRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL || "/api"}/bookings/reserve`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.backendToken}`,
-        },
-        body: JSON.stringify({
-          userId,
-          items: [{
-            eventId: Number(eventId),
-            ticketTypeId: Number(ticketTypeId),
-            ticketName,
-            quantity: 1,
-            unitPrice: parseFloat(ticketPrice)
-          }]
-        }),
-      });
-
-      const bookingData = await bookingRes.json();
-
-      if (!bookingRes.ok || !bookingData.success) {
-        throw new Error(bookingData.message || "Failed to create booking reservation.");
-      }
-
-      // 2. We now have a real booking ID from the database!
-      const realBookingId = String(bookingData.data.id);
-      setBookingId(realBookingId);
-      const cardLast4 = isCard ? cardNumber.replace(/\s/g, "").slice(-4) : undefined;
+      const bookingId = crypto.randomUUID();
+      const cardLast4 = cardNumber.replace(/\s/g, "").slice(-4);
 
       const result = await createPayment(session.backendToken, {
-        bookingId: realBookingId,
+        bookingId,
         amount: parseFloat(ticketPrice),
         currency: "LKR",
         paymentMethod,
-        cardLast4,
+        cardLast4: isCard ? cardLast4 : undefined,
         metadata: {
           eventId,
           eventName,
@@ -216,15 +173,14 @@ function PaymentPageInner() {
       if (result.data.status === "failed") {
         setErrorMessage(result.data.failureReason || "Payment was declined.");
       }
-    } catch (err: unknown) {
-      const paymentError = err as PaymentApiError;
+    } catch (err: any) {
       // Extract payment data from failed API response (e.g. card declined - 400)
-      if (paymentError?.data?.data) {
-        setPaymentResult(paymentError.data.data);
+      if (err?.data?.data) {
+        setPaymentResult(err.data.data);
       }
       setStep("failed");
       setErrorMessage(
-        paymentError?.data?.error || paymentError?.message || "Payment processing failed. Please try again."
+        err?.data?.error || err?.message || "Payment processing failed. Please try again."
       );
     }
   };
@@ -307,12 +263,6 @@ function PaymentPageInner() {
                 Completed
               </span>
             </div>
-            {bookingId && (
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Booking ID</span>
-                <span className="text-sm font-medium text-gray-800">BKG-{bookingId}</span>
-              </div>
-            )}
           </div>
 
           <div className="flex gap-3">
