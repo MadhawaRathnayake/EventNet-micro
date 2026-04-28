@@ -15,7 +15,7 @@ spec:
       containers:
       - name: user-service-container
         # This points exactly to the image you pushed to the shared ACR!
-        image: eventregistryhiran01.azurecr.io/user_service:v1
+        image: eventregistryhiran01.azurecr.io/user_service:latest
         ports:
         - containerPort: 5000 # IMPORTANT: Change this if your Node.js app uses a different port (like 8080)
         env:

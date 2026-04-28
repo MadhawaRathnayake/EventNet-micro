@@ -7,9 +7,10 @@ type AuthUserLike = {
   role?: string;
 };
 
-const toNumericIdString = (value: unknown): string => {
+// Safely converts any value to a non-empty string ID (supports both UUIDs and numeric IDs)
+const toIdString = (value: unknown): string => {
   const stringValue = String(value ?? "").trim();
-  return /^\d+$/.test(stringValue) ? stringValue : "";
+  return stringValue || "";
 };
 
 // NextAuth route handlers run on the server (Node), so backend calls MUST use an absolute URL.
@@ -66,63 +67,91 @@ const handler = NextAuth({
             password: credentials.password,
           });
           const data = await res.json();
+
+          // ─── LOG 1: See what the backend returned ───
+          console.log("[authorize] backend data.user:", data.user);
+
           if (res.ok && data.user) {
-            return {
+            const returned = {
               id: data.user.id,
               email: data.user.email,
               name: `${data.user.first_name || ''} ${data.user.last_name || ''}`.trim() || data.user.email,
               role: data.user.role,
               backendToken: data.token
             };
+
+            // ─── LOG 2: See what authorize() is returning to NextAuth ───
+            console.log("[authorize] returning user object:", returned);
+
+            return returned;
           }
           return null;
         } catch {
-          // Backend service unavailable or timeout; return null so UI shows login failure cleanly.
           return null;
         }
       }
     }),
   ],
   callbacks: {
-    // Attach the id_token to the JWT
     async jwt({ token, account, user }) {
-      if (user?.id) {
-        token.userId = toNumericIdString(user.id);
-      }
-      if (account && account.id_token) {
-        token.idToken = account.id_token;
 
+      // LOG 3: See what NextAuth passes into the jwt callback
+      console.log("[jwt] user received:", user);
+      console.log("[jwt] token.sub (NextAuth built-in):", token.sub);
+      console.log("[jwt] token.userId before any changes:", token.userId);
+
+      if (account && account.id_token) {
+        // Google OAuth login — fetch database user ID from our backend
+        token.idToken = account.id_token;
         try {
-          // Sync with user_service
           const res = await safeBackendFetch("/users/auth/google", {
             token: account.id_token,
           });
-          
           if (res.ok) {
             const data = await res.json();
             token.backendToken = data.token;
             token.role = data.user.role;
-            token.userId = toNumericIdString(data.user?.id);
+            // Store our database ID (not Google's sub)
+            token.userId = toIdString(data.user?.id);
           }
         } catch {
-          // Ignore backend sync failures; session can still proceed with provider token.
+          // Ignore backend sync failures
         }
       } else if (user && typeof user === "object" && "backendToken" in user) {
+        // Credentials login — only runs on the very FIRST call when user object exists
         const typedUser = user as AuthUserLike;
-        // Handle credentials login
         token.backendToken = typedUser.backendToken;
         token.role = typedUser.role;
+        if (user.id) {
+          token.userId = toIdString(user.id);
+        }
       }
+
+      // LOG 4: See what token.userId is after all the logic
+      // IMPORTANT: token.sub is ALWAYS set by NextAuth from user.id automatically.
+      // If our custom token.userId was never set (old session cookie), fall back to token.sub.
+      console.log("[jwt] token.userId after all logic:", token.userId);
+      console.log("[jwt] token.sub fallback would be:", token.sub);
+
       return token;
     },
-    // Expose the tokens to the client session
     async session({ session, token }) {
+
+      // LOG 5: See what token contains when building the session
+      console.log("[session] token.userId:", token.userId, "token.sub:", token.sub);
+
       session.idToken = token.idToken as string;
       session.backendToken = token.backendToken as string;
       if (session.user) {
-        session.user.id = toNumericIdString(token.userId);
+        // Use our explicit token.userId first; fall back to token.sub which NextAuth ALWAYS sets.
+        const rawId = token.userId || token.sub || "";
+        session.user.id = toIdString(rawId);
         session.user.role = token.role as string;
       }
+
+      // LOG 6: See what session.user.id ends up as
+      console.log("[session] session.user.id:", session.user?.id);
+
       return session;
     },
   },
