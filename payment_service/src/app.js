@@ -29,6 +29,7 @@ const limiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path.includes('/health'), // Exclude Kubernetes health probes
 });
 app.use('/api/', limiter);
 

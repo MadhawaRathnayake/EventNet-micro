@@ -2,8 +2,8 @@
 const validateBookingRequest = (body) => {
   const errors = [];
 
-  if (!body.userId || !Number.isInteger(body.userId) || body.userId <= 0) {
-    errors.push('userId is required and must be a positive integer');
+  if (!body.userId || (typeof body.userId !== 'string' && typeof body.userId !== 'number')) {
+    errors.push('userId is required and must be a valid ID');
   }
 
   if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
@@ -35,8 +35,8 @@ const validateBookingRequest = (body) => {
 const validateReservationRequest = (body) => {
   const errors = [];
 
-  if (!body.userId || !Number.isInteger(body.userId) || body.userId <= 0) {
-    errors.push('userId is required and must be a positive integer');
+  if (!body.userId || (typeof body.userId !== 'string' && typeof body.userId !== 'number')) {
+    errors.push('userId is required and must be a valid ID');
   }
 
   if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
