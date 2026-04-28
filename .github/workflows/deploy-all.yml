@@ -458,7 +458,8 @@ jobs:
           smoke_test "Frontend" 8081 80 "/" "event-frontend-service" 200
 
           # User Service — svc port 80, container 5000
-          smoke_test "User Service" 8082 80 "/api/users" "user-service" 200
+          # 401 is expected: the endpoint requires JWT auth, so 401 confirms it's alive & enforcing security
+          smoke_test "User Service" 8082 80 "/api/users" "user-service" 401
 
           # Event Service — svc port 5002, container 5002
           smoke_test "Event Service" 8083 5002 "/api/events" "event-service" 200
