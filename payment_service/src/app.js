@@ -78,7 +78,7 @@ app.use(errorHandler);
 // ─── Message Queue Consumer Handler ─────────────────────────────
 const handlePaymentRequest = async (message) => {
   try {
-    const { data } = message;
+    const data = message.data || message;
     console.log(`📥 Processing payment request from MQ:`, data);
 
     // Create payment from MQ message

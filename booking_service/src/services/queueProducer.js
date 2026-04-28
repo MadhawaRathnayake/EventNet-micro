@@ -11,6 +11,7 @@ const connectRabbitMQ = async () => {
   // Declare both queues
   await channel.assertQueue("booking.created", { durable: true });
   await channel.assertQueue("booking.confirmed", { durable: true });
+  await channel.assertQueue("payment.request", { durable: true });
 
   console.log("[QueueProducer] RabbitMQ connected");
 };
@@ -33,8 +34,16 @@ const sendPaymentRequest = async (bookingData) => {
       }))
     };
 
+    // Publish to event service (decrement tickets)
     channel.sendToQueue(
       "booking.created",
+      Buffer.from(JSON.stringify(message)),
+      { persistent: true }
+    );
+
+    // Publish to payment service (process payment)
+    channel.sendToQueue(
+      "payment.request",
       Buffer.from(JSON.stringify(message)),
       { persistent: true }
     );
